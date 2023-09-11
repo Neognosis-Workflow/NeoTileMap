@@ -67,11 +67,9 @@ def register():
     bpy.types.Scene.nuv_settings = bpy.props.PointerProperty(type=NeoUvUiSettings)
 
 
-def unregster():
+def unregister():
     for c in classes:
         bpy.utils.unregister_class(c)
-
-    del bpy.types.Scene.nuv_settings
 
 
 def draw_tile_set_ui(layout, context):
