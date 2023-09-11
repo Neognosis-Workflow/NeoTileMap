@@ -6,6 +6,7 @@ from . import nTileUi
 from . import nUvTools
 from . import nImageEditor
 from . import nInteractiveRectSelector
+from . import nInteractiveUv
 from . import nUtil
 
 bl_info = {
@@ -13,7 +14,7 @@ bl_info = {
     "author" : "Adam Chivers",
     "description" : "",
     "blender" : (2, 90, 0),
-    "version" : (1, 0),
+    "version" : (1, 1),
     "location" : "",
     "warning" : "",
     "category" : "Generic"
@@ -52,6 +53,7 @@ modules = (
     nUvTools,
     nImageEditor,
     nInteractiveRectSelector,
+    nInteractiveUv,
     nUtil,
 )
 

@@ -180,6 +180,9 @@ def ui_draw_manip_tools(layout, context, settings):
     c_row.operator("neo.uv_setuvrectnormal", text="Full Unwrap")
     c_row.operator("neo.uv_normalize", text="Normalize Selection")
 
+    # interactive uv tool
+    container.operator("view3d.nuv_interactiveuveditor", text="Edit Uvs")
+
 
 def ui_draw_rects(layout, context, settings):
 
