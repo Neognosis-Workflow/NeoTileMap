@@ -16,6 +16,13 @@ class NeoUvUiSettings(bpy.types.PropertyGroup):
     correct_aspect_ratio: bpy.props.BoolProperty(default=True)
     snap_to_bounds: bpy.props.BoolProperty(default=False)
 
+    unwrap_axis: bpy.props.IntVectorProperty(
+        name="Unwrap Axis",
+        min=-1,
+        max=1,
+        default=(0, 0, 1)
+    )
+
     mode_space: bpy.props.EnumProperty(
         name="Unwrap Origins",
         items = (
@@ -99,6 +106,10 @@ def ui_draw_settings(layout, context, settings):
     c_col = c_row.column()
     c_col.prop(settings, "correct_aspect_ratio", expand=True, text="Correct Aspect Ratio")
     c_col.prop(settings, "snap_to_bounds", expand=True, text="Snap To Bounds")
+
+    c_col.label(text="Unwrap Axis")
+    c_row_inner = c_col.row()
+    c_row_inner.prop(settings, "unwrap_axis", expand=True, text="")
 
     # space mode
     c_row = container.row()

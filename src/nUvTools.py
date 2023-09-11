@@ -212,12 +212,13 @@ class UtilOpNeoSetUvRect(UtilOpMeshOperator):
         global_dir /= face_itr_count
 
         # calculate global rotation
+        unwrap_axis = bpy.context.scene.nuv_settings.unwrap_axis
         if unwrap_mode == "1":  # face up
             unwrap_up = global_tangent
         elif unwrap_mode == "2":  # world up
-            unwrap_up = mathutils.Vector((0.0, 0.0, 1.0))
+            unwrap_up = mathutils.Vector(unwrap_axis)
         elif unwrap_mode == "3":  # object up
-            unwrap_up = mw.to_quaternion() @ mathutils.Vector((0.0, 0.0, 1.0))
+            unwrap_up = mw.to_quaternion() @ mathutils.Vector(unwrap_axis)
         else:
             unwrap_up = global_tangent
 
@@ -312,12 +313,13 @@ class UtilOpNeoSetUvRect(UtilOpMeshOperator):
             tangent = mw.to_quaternion() @ face.calc_tangent_edge_pair()
 
             # calculate face rotation
+            unwrap_axis = bpy.context.scene.nuv_settings.unwrap_axis
             if unwrap_mode == "1": # face up
                 unwrap_up = tangent
             elif unwrap_mode == "2": # world up
-                unwrap_up = mathutils.Vector((0.0, 0.0, 1.0))
+                unwrap_up = mathutils.Vector(unwrap_axis)
             elif unwrap_mode == "3": # object up
-                unwrap_up = mw.to_quaternion() @ mathutils.Vector((0.0, 0.0, 1.0))
+                unwrap_up = mw.to_quaternion() @ mathutils.Vector(unwrap_axis)
             else:
                 unwrap_up = tangent
 
