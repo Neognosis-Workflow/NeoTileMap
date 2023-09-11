@@ -364,5 +364,5 @@ def setupProps():
     bpy.types.Scene.nuv_uvSets = bpy.props.CollectionProperty(type=NeoTileRectCollection)
 
 def desetupProps():
-    del bpy.types.Scene.nuv_uvSetsv
+    pass
 #endregion
