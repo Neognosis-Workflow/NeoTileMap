@@ -37,7 +37,8 @@ class NeoUvUiSettings(bpy.types.PropertyGroup):
             ("1", "Face Is Up", "Face Is Up"),
             ("2", "World Is Up", "World Is Up"),
             ("3", "Object Is Up", "Object Is Up"),
-            ("4", "No Projection", "No Projection")
+            ("4", "Camera Is Up", "Camera Is Up"),
+            ("5", "No Projection", "No Projection")
         ),
     )
 

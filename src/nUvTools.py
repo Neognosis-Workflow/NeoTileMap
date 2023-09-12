@@ -169,12 +169,12 @@ class UtilOpNeoSetUvRect(UtilOpMeshOperator):
         uv_layer = layer.verify()
 
         if space_mode == "1":
-            self.unwrap_local(in_edit_mode, mw, bm, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer)
+            self.unwrap_local(in_edit_mode, context, mw, bm, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer)
         else:
-            self.unwrap_global(in_edit_mode, mw, bm, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer)
+            self.unwrap_global(in_edit_mode, context, mw, bm, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer)
 
     @staticmethod
-    def unwrap_global(in_edit_mode, mw, bm, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer):
+    def unwrap_global(in_edit_mode, context, mw, bm, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer):
         """
         Unwraps the selected faces global to the sum of all faces
         """
@@ -219,6 +219,8 @@ class UtilOpNeoSetUvRect(UtilOpMeshOperator):
             unwrap_up = mathutils.Vector(unwrap_axis)
         elif unwrap_mode == "3":  # object up
             unwrap_up = mw.to_quaternion() @ mathutils.Vector(unwrap_axis)
+        elif unwrap_mode == "4": # camera up
+            unwrap_up = context.space_data.region_3d.view_rotation @ mathutils.Vector(unwrap_axis)
         else:
             unwrap_up = global_tangent
 
@@ -298,7 +300,7 @@ class UtilOpNeoSetUvRect(UtilOpMeshOperator):
             face_itr += 1
 
     @staticmethod
-    def unwrap_local(in_edit_mode, mw, bm, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer):
+    def unwrap_local(in_edit_mode, context, mw, bm, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer):
         """
         Unwraps selected faces local to themselves.
         """
@@ -320,6 +322,8 @@ class UtilOpNeoSetUvRect(UtilOpMeshOperator):
                 unwrap_up = mathutils.Vector(unwrap_axis)
             elif unwrap_mode == "3": # object up
                 unwrap_up = mw.to_quaternion() @ mathutils.Vector(unwrap_axis)
+            elif unwrap_mode == "4": # camera up
+                unwrap_up = context.space_data.region_3d.view_rotation @ mathutils.Vector(unwrap_axis)
             else:
                 unwrap_up = tangent
 
@@ -360,7 +364,7 @@ class UtilOpNeoSetUvRect(UtilOpMeshOperator):
             # unwrap
             itr = 0
             for vert, loop in zip(face.verts, face.loops):
-                if unwrap_mode == "4" and vert_len <= 4:
+                if unwrap_mode == "5" and vert_len <= 4:
                     if itr == 0:
                         x = (rect.topLeftX + 1.0) / 2.0
                         y = (rect.topLeftY + 1.0) / 2.0
