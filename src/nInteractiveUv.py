@@ -1,6 +1,7 @@
 import bpy
 import bmesh
 import math
+from . import nMath
 
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
@@ -55,8 +56,13 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
 
         if event.type == "LEFTMOUSE":
             if event.value == "PRESS" and not self.dragging_uv:
-                self.dragging_uv = True
                 self.active_component = self.edit_component
+                self.dragging_uv = True
+
+                self.cache_uvs()
+                self.mouse_drag_x = 0
+                self.mouse_drag_y = 0
+
 
             if event.value == "RELEASE" and self.dragging_uv:
                 self.dragging_uv = False
@@ -69,9 +75,57 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
 
         return {'RUNNING_MODAL'}
 
+    def cache_uvs(self):
+        self.cached_uvs = []
+
+        component = self.active_component
+        layer = self.edit_mesh.loops.layers.uv
+        uv_layer = layer.verify()
+
+        # build list of vertices to update uvs for
+        verts = []
+        if isinstance(component, bmesh.types.BMFace):
+            for e in component.edges:
+                for v in e.verts:
+                    verts.append(v)
+        elif isinstance(component, bmesh.types.BMEdge):
+            for v in component.verts:
+                verts.append(v)
+        elif isinstance(component, bmesh.types.BMVert):
+            verts.append(component)
+
+        # build list of uv caches, holding references to the vertex, the relevant loops and the uvs on those loops
+        allow_linked_edits = bpy.context.scene.nuv_settings.uv_editor_linked_faces
+        print(allow_linked_edits)
+        for v in verts:
+
+            loops = []
+            faces = []
+            for l in v.link_loops:
+                if not allow_linked_edits and l.face is not self.hit_face: continue
+
+                loops.append(l)
+                faces.append(l.face)
+
+            uvs = []
+            for l in loops:
+                uvs.append(l[uv_layer].uv.copy())
+
+            self.cached_uvs.append((v, faces, loops, uvs))
+
+
     def update_uvs(self, context):
 
-        # mouse wrapping
+        region = bpy.context.region
+        region_3d = bpy.context.region_data
+
+        # mouse drag
+        self.mouse_drag_x += self.mouse_delta_x
+        self.mouse_drag_y += self.mouse_delta_y
+
+        mouse_drag_world = view3d_utils.region_2d_to_vector_3d(region, region_3d, (self.mouse_drag_x, self.mouse_drag_y))
+
+        # mouse warping
         if self.mouse_x > context.area.x + context.area.width:
             context.window.cursor_warp(context.area.x, self.mouse_y)
             self.warped_mouse = True
@@ -88,30 +142,58 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
             context.window.cursor_warp(self.mouse_x, context.area.y + context.area.height)
             self.warped_mouse = True
 
-        verts = []
-        component = self.active_component
+        # image settings
+        materials = self.obj.data.materials
+        mat_index = self.hit_face.material_index
+        face_material = materials[mat_index]
 
-        if isinstance(component, bmesh.types.BMFace):
-            for e in component.edges:
-                for v in e.verts:
-                    verts.append(v)
-        elif isinstance(component, bmesh.types.BMEdge):
-            for v in component.verts:
-                verts.append(v)
-        elif isinstance(component, bmesh.types.BMVert):
-            verts.append(component)
+        # typical resolution for a BNG scenery atlas. Use as fallback if a texture can't be found.
+        tex_x = 2048
+        tex_y = 2048
+        for n in face_material.node_tree.nodes:
+            if n.type == "TEX_IMAGE":
+                img = n.image
+                tex_x = img.size[0]
+                tex_y = img.size[1]
+                break # first index will be the diffuse texture, we can break out
+
+        tex_x_pixel_size = 1 / tex_x
+        tex_y_pixel_size = 1 / tex_y
+
+        # settings
+        snap_to_pixel = True
 
         layer = self.edit_mesh.loops.layers.uv
         uv_layer = layer.verify()
 
-        for v in verts:
-            for l in v.link_loops:
-                if l.face is not self.hit_face: continue # TODO: ADD OPTION TO DISABLE THIS
+        mouse_drag_vec = Vector((-self.mouse_drag_x, -self.mouse_drag_y))
+        for c in self.cached_uvs:
+            # note: drag_projected is setup to allow the drag orientation to be potentially mapped to the actual
+            # orienation of the faces UVs in the future, but my brain is not big enough to have figured out a way
+            # to potentially do this yet.
+            self.calculate_uv_drag_vec(c)
 
-                l[uv_layer].uv += Vector((-self.mouse_delta_x, self.mouse_delta_y)) * 0.00001
+            drag_dir_x = Vector((1, 0))
+            drag_dir_y = Vector((0, 1))
+
+            drag_projected_x = mouse_drag_vec.project(drag_dir_x)
+            drag_projected_y = mouse_drag_vec.project(drag_dir_y)
+
+            for loop, base_uv in zip(c[2], c[3]):
+                uv = base_uv.copy()
+                uv += drag_projected_x * 0.00001
+                uv += drag_projected_y * 0.00001
+
+                if snap_to_pixel:
+                    uv.x = round(uv.x / tex_x_pixel_size) * tex_x_pixel_size
+                    uv.y = round(uv.y / tex_y_pixel_size) * tex_y_pixel_size
+
+                loop[uv_layer].uv = uv
 
         bmesh.update_edit_mesh(self.mesh, loop_triangles=False, destructive=False)
 
+    def calculate_uv_drag_vec(self, uv_data):
+        pass
 
     def try_hit_mesh(self, context, event):
         mouse_pos = [event.mouse_region_x, event.mouse_region_y]
@@ -174,7 +256,6 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
                     min_distance = vert_distance
                     self.edit_component = v
 
-
     def finished(self):
         bpy.types.SpaceView3D.draw_handler_remove(self.handle_v, 'WINDOW')
         bpy.types.SpaceView3D.draw_handler_remove(self.handle_px, 'WINDOW')
@@ -212,7 +293,7 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
 
         if isinstance(component, bmesh.types.BMVert):
             viewport_coord = view3d_utils.location_3d_to_region_2d(region, region_3d, world_matrix @ component.co)
-            self.draw_filled_circle(viewport_coord, 8.0, 10)
+            self.draw_filled_circle(viewport_coord, 3.0, 10)
         pass
 
     def draw_filled_face(self, face, world_matrix):
@@ -276,7 +357,11 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
         self.mouse_y = 0
         self.mouse_prev_x = 0
         self.mouse_prev_y = 0
+        self.mouse_drag_x = 0
+        self.mouse_drag_y = 0
         self.warped_mouse = False
+
+        self.cached_uvs = None
 
         # setup handlers
         self.handle_v = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback_v, (self, context), "WINDOW", "POST_VIEW")

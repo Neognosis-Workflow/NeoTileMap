@@ -55,6 +55,11 @@ class NeoUvUiSettings(bpy.types.PropertyGroup):
         default=-1
     )
 
+    uv_editor_linked_faces: bpy.props.BoolProperty(
+        name="Linked Uv Editing",
+        default=False
+    )
+
 
 classes = (
     NeoUvUiSettings,
@@ -182,7 +187,9 @@ def ui_draw_manip_tools(layout, context, settings):
     c_row.operator("neo.uv_normalize", text="Normalize Selection")
 
     # interactive uv tool
-    container.operator("view3d.nuv_interactiveuveditor", text="Edit Uvs")
+    c_row = container.row()
+    c_row.operator("view3d.nuv_interactiveuveditor", text="Edit Uvs")
+    c_row.prop(settings, "uv_editor_linked_faces")
 
 
 def ui_draw_rects(layout, context, settings):
