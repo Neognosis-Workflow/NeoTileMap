@@ -595,9 +595,9 @@ class UtilOpNeoSetUvRectNormal(UtilOpMeshOperator):
         uv_layer = layer.verify()
 
         if space_mode == "1":
-            UtilOpNeoSetUvRect.unwrap_local(in_edit_mode, mw, bm, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer)
+            UtilOpNeoSetUvRect.unwrap_local(in_edit_mode, context, mw, bm, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer)
         else:
-            UtilOpNeoSetUvRect.unwrap_global(in_edit_mode, mw, bm, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer)
+            UtilOpNeoSetUvRect.unwrap_global(in_edit_mode, context, mw, bm, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer)
 
 
 class TempNeoTileRect:
