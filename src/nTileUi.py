@@ -187,9 +187,12 @@ def ui_draw_manip_tools(layout, context, settings):
     c_row.operator("neo.uv_normalize", text="Normalize Selection")
 
     # interactive uv tool
-    c_row = container.row()
-    c_row.operator("view3d.nuv_interactiveuveditor", text="Edit Uvs")
-    c_row.prop(settings, "uv_editor_linked_faces")
+    if bpy.context.object.mode == "EDIT":
+        c_row = container.row()
+        c_row.operator("view3d.nuv_interactiveuveditor", text="Edit Uvs")
+        c_row.prop(settings, "uv_editor_linked_faces")
+    else:
+        container.label(text="Enter edit mode to access Edit Uvs.")
 
 
 def ui_draw_rects(layout, context, settings):
