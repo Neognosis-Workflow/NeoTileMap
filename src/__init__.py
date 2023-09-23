@@ -14,7 +14,7 @@ bl_info = {
     "author" : "Adam Chivers",
     "description" : "",
     "blender" : (2, 90, 0),
-    "version" : (1, 1),
+    "version" : (1, 2),
     "location" : "",
     "warning" : "",
     "category" : "Generic"

@@ -60,6 +60,11 @@ class NeoUvUiSettings(bpy.types.PropertyGroup):
         default=False
     )
 
+    uv_edit_pixel_snap: bpy.props.BoolProperty(
+        name="Pixel Snap Uvs",
+        default=True
+    )
+
 
 classes = (
     NeoUvUiSettings,
@@ -152,8 +157,24 @@ def ui_draw_manip_tools(layout, context, settings):
     if not settings.tools_expanded:
         return
 
-    # rotate tool
     container = container.box()
+
+    # interactive uv tool
+    if bpy.context.object.mode == "EDIT":
+        container.operator("view3d.nuv_interactiveuveditor", text="Edit Uvs")
+        c_row = container.row()
+        c_row.split(factor=0.3)
+
+        c_row.label(text="Edit Uvs Settings")
+
+        c_col = c_row.column()
+        c_col.prop(settings, "uv_editor_linked_faces")
+        c_col.prop(settings, "uv_edit_pixel_snap")
+
+    else:
+        container.label(text="Enter edit mode to access Edit Uvs.")
+
+    # rotate tool
     c_row = container.row()
     c_row.split(factor=0.3)
 
@@ -185,14 +206,6 @@ def ui_draw_manip_tools(layout, context, settings):
 
     c_row.operator("neo.uv_setuvrectnormal", text="Full Unwrap")
     c_row.operator("neo.uv_normalize", text="Normalize Selection")
-
-    # interactive uv tool
-    if bpy.context.object.mode == "EDIT":
-        c_row = container.row()
-        c_row.operator("view3d.nuv_interactiveuveditor", text="Edit Uvs")
-        c_row.prop(settings, "uv_editor_linked_faces")
-    else:
-        container.label(text="Enter edit mode to access Edit Uvs.")
 
 
 def ui_draw_rects(layout, context, settings):

@@ -131,6 +131,29 @@ def center_for_triangle(a, b, c):
         return mathutils.Vector(((c.x + a.x) / 2, (c.y + a.y) / 2))
 
 
+def calculate_uv_from_raycast(hit_loc, face, uv_layer):
+    verts = []
+    for v in face.verts:
+        verts.append(v.co)
+
+    weights = mathutils.interpolate.poly_3d_calc(verts, hit_loc)
+
+    uv = mathutils.Vector((0.0, 0.0))
+    for i in range(len(weights)):
+        uv += weights[i] * face.loops[i][uv_layer].uv
+
+    return uv
+
+
+def calculate_uv_from_raycast_custom_verts(hit_loc, face, verts, uv_layer):
+    weights = mathutils.interpolate.poly_3d_calc(verts, hit_loc)
+
+    uv = mathutils.Vector((0.0, 0.0))
+    for i in range(len(weights)):
+        uv += weights[i] * face.loops[i][uv_layer].uv
+
+    return uv
+
 def dist_2d(a, b):
     return (a - b).magnitude
 

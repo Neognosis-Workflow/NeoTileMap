@@ -1,3 +1,5 @@
+import sys
+
 import bpy
 import bmesh
 import math
@@ -27,13 +29,34 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
         self.hit_result = None
         super().__init__()
 
-    def modal(self, context, event):
+    def holding_modifier_key(self):
+        return self.shift_held or self.ctrl_held or self.alt_held
 
+    def modal(self, context, event):
         context.area.tag_redraw()
+
+        if event.type == "ESCAPE" and event.value == "PRESS":
+            self.finished()
+            return {"FINISHED"}
+
+        if event.type == "LEFT_SHIFT" or event.type == "RIGHT_SHIFT":
+            if event.value == "PRESS": self.shift_held = True
+            if event.value == "RELEASE": self.shift_held = False
+
+        if event.type == "LEFT_CTRL" or event.type == "RIGHT_CTRL":
+            if event.value == "PRESS": self.ctrl_held = True
+            if event.value == "RELEASE": self.ctrl_held = False
+
+        if event.type == "LEFT_ALT" or event.type == "LEFT_ALT":
+                if event.value == "PRESS": self.alt_held = True
+                if event.value == "RELEASE": self.alt_held = False
 
         # find component under mouse cursor
         if not self.dragging_uv:
-            self.hit_result = self.try_hit_mesh(context, event)
+            hit_results = self.try_hit_mesh(context, event)
+            if hit_results is not None:
+                self.hit_result = hit_results[0]
+                self.mouse_world_loc = hit_results[1]
             self.try_assign_face()
             self.find_edit_components()
 
@@ -52,10 +75,18 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
         self.mouse_delta_x = self.mouse_x - self.mouse_prev_x
         self.mouse_delta_y = self.mouse_y - self.mouse_prev_y
 
-        if self.dragging_uv: self.update_uvs(context)
+        if self.dragging_uv: self.update_uvs(context, event)
 
         if event.type == "LEFTMOUSE":
             if event.value == "PRESS" and not self.dragging_uv:
+
+                if self.shift_held:
+                    self.uv_mode = "s"
+                elif self.ctrl_held:
+                    self.uv_mode = "r"
+                else:
+                    self.uv_mode = "o"
+
                 self.active_component = self.edit_component
                 self.dragging_uv = True
 
@@ -96,7 +127,6 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
 
         # build list of uv caches, holding references to the vertex, the relevant loops and the uvs on those loops
         allow_linked_edits = bpy.context.scene.nuv_settings.uv_editor_linked_faces
-        print(allow_linked_edits)
         for v in verts:
 
             loops = []
@@ -113,15 +143,47 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
 
             self.cached_uvs.append((v, faces, loops, uvs))
 
-
-    def update_uvs(self, context):
-
+    def loc_to_view(self, loc):
         region = bpy.context.region
         region_3d = bpy.context.region_data
+
+        loc_world = self.obj.matrix_world @ loc
+        return view3d_utils.location_3d_to_region_2d(region, region_3d, loc_world)
+
+    def calculate_uvs_from_raycast_scaled(self, hit_loc_view, face, uv_layer):
+        verts_view = []
+        for v in face.verts:
+            vert_view = self.loc_to_view(v.co)
+            if vert_view is None:
+                vert_view = Vector((0, 0))
+
+            verts_view.append(Vector((vert_view.x, vert_view.y, 0.0)))
+
+        return nMath.calculate_uv_from_raycast_custom_verts(hit_loc_view, face, verts_view, uv_layer)
+
+    def update_uvs(self, context, event):
 
         # mouse drag
         self.mouse_drag_x += self.mouse_delta_x
         self.mouse_drag_y += self.mouse_delta_y
+
+        # reset the uvs
+        layer = self.edit_mesh.loops.layers.uv
+        uv_layer = layer.verify()
+
+        for c in self.cached_uvs:
+            for loop, base_uv in zip(c[2], c[3]):
+                loop[uv_layer].uv = base_uv
+
+        hit_result = self.try_hit_mesh(context, event)
+        if hit_result is None:
+            current_bary_uv = self.bary_uv
+        else:
+            hit_view_loc = self.loc_to_view(self.hit_result[0]) + Vector((self.mouse_drag_x, self.mouse_drag_y)).normalized()
+            current_bary_uv = self.calculate_uvs_from_raycast_scaled(hit_view_loc, self.hit_face, uv_layer)
+
+        region = bpy.context.region
+        region_3d = bpy.context.region_data
 
         mouse_drag_world = view3d_utils.region_2d_to_vector_3d(region, region_3d, (self.mouse_drag_x, self.mouse_drag_y))
 
@@ -161,28 +223,24 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
         tex_y_pixel_size = 1 / tex_y
 
         # settings
-        snap_to_pixel = True
-
-        layer = self.edit_mesh.loops.layers.uv
-        uv_layer = layer.verify()
+        snap_to_pixel = bpy.context.scene.nuv_settings.uv_edit_pixel_snap
 
         mouse_drag_vec = Vector((-self.mouse_drag_x, -self.mouse_drag_y))
         for c in self.cached_uvs:
-            # note: drag_projected is setup to allow the drag orientation to be potentially mapped to the actual
-            # orienation of the faces UVs in the future, but my brain is not big enough to have figured out a way
-            # to potentially do this yet.
-            self.calculate_uv_drag_vec(c)
-
-            drag_dir_x = Vector((1, 0))
-            drag_dir_y = Vector((0, 1))
-
-            drag_projected_x = mouse_drag_vec.project(drag_dir_x)
-            drag_projected_y = mouse_drag_vec.project(drag_dir_y)
-
             for loop, base_uv in zip(c[2], c[3]):
                 uv = base_uv.copy()
-                uv += drag_projected_x * 0.00001
-                uv += drag_projected_y * 0.00001
+
+                if self.uv_mode == "s": # scale
+                    scale = 1.0 + (mouse_drag_vec.x * tex_x_pixel_size)
+                    uv = (uv - self.bary_uv) * scale + self.bary_uv
+
+                elif self.uv_mode == "r": # rotate
+                    angle = mouse_drag_vec.x * 0.1
+                    uv = nMath.rotate_vector(uv, self.bary_uv, angle)
+
+                else: # move
+                    pixel_mag = Vector((tex_x_pixel_size, tex_x_pixel_size)).magnitude
+                    uv += (self.bary_uv - current_bary_uv).normalized() * mouse_drag_vec.magnitude * pixel_mag * 0.05
 
                 if snap_to_pixel:
                     uv.x = round(uv.x / tex_x_pixel_size) * tex_x_pixel_size
@@ -191,9 +249,6 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
                 loop[uv_layer].uv = uv
 
         bmesh.update_edit_mesh(self.mesh, loop_triangles=False, destructive=False)
-
-    def calculate_uv_drag_vec(self, uv_data):
-        pass
 
     def try_hit_mesh(self, context, event):
         mouse_pos = [event.mouse_region_x, event.mouse_region_y]
@@ -204,8 +259,6 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
         ray_origin = view3d_utils.region_2d_to_origin_3d(region, region_3d, mouse_pos)
         ray_target = ray_origin + view_vec
 
-        self.mouse_world_loc = ray_origin
-
         matrix = self.obj.matrix_world.inverted()
 
         ray_origin_obj = matrix @ ray_origin
@@ -215,14 +268,18 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
         result = self.tree.ray_cast(ray_origin_obj, ray_dir_obj)
 
         if result[0] is None: return None
-        return result
+        return [result, ray_origin]
 
     def try_assign_face(self):
         self.hit_face = None
         if self.hit_result is None: return
 
-        #print(self.hit_result[2])
         self.hit_face = self.edit_mesh.faces[self.hit_result[2]]
+
+        layer = self.edit_mesh.loops.layers.uv
+        uv_layer = layer.verify()
+
+        self.bary_uv = self.calculate_uvs_from_raycast_scaled(self.loc_to_view(self.hit_result[0]), self.hit_face, uv_layer)
 
     def find_edit_components(self):
         self.edit_component = None
@@ -237,6 +294,9 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
         hit_point = matrix @ self.hit_result[0]
         face_center = matrix @ self.hit_face.calc_center_median()
         min_distance = (hit_point - face_center).magnitude
+
+        if self.holding_modifier_key():
+            return
 
         # compare against edge centers
         for e in self.hit_face.edges:
@@ -362,6 +422,12 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
         self.warped_mouse = False
 
         self.cached_uvs = None
+
+        self.shift_held = False
+        self.ctrl_held = False
+        self.alt_held = False
+
+        self.uv_mode = "o"
 
         # setup handlers
         self.handle_v = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback_v, (self, context), "WINDOW", "POST_VIEW")
