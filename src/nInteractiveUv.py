@@ -35,7 +35,7 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
     def modal(self, context, event):
         context.area.tag_redraw()
 
-        if event.type == "ESCAPE" and event.value == "PRESS":
+        if (event.type == "ESCAPE" or event.type == "RET") and event.value == "PRESS":
             self.finished()
             return {"FINISHED"}
 
