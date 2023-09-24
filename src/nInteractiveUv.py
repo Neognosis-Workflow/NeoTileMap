@@ -88,6 +88,7 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
                     self.uv_mode = "o"
 
                 self.active_component = self.edit_component
+                self.last_drag_bary_uv = None
                 self.dragging_uv = True
 
                 self.cache_uvs()
@@ -166,6 +167,7 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
         # mouse drag
         self.mouse_drag_x += self.mouse_delta_x
         self.mouse_drag_y += self.mouse_delta_y
+        mouse_drag_vec = Vector((-self.mouse_drag_x, -self.mouse_drag_y))
 
         # reset the uvs
         layer = self.edit_mesh.loops.layers.uv
@@ -175,17 +177,17 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
             for loop, base_uv in zip(c[2], c[3]):
                 loop[uv_layer].uv = base_uv
 
+        # try to figure out a new barycentric coordinate to generate the UV offsets with
         hit_result = self.try_hit_mesh(context, event)
         if hit_result is None:
-            current_bary_uv = self.bary_uv
+            if self.last_drag_bary_uv is not None:
+                current_bary_uv = self.last_drag_bary_uv
+            else:
+                current_bary_uv = self.bary_uv
         else:
             hit_view_loc = self.loc_to_view(self.hit_result[0]) + Vector((self.mouse_drag_x, self.mouse_drag_y)).normalized()
             current_bary_uv = self.calculate_uvs_from_raycast_scaled(hit_view_loc, self.hit_face, uv_layer)
-
-        region = bpy.context.region
-        region_3d = bpy.context.region_data
-
-        mouse_drag_world = view3d_utils.region_2d_to_vector_3d(region, region_3d, (self.mouse_drag_x, self.mouse_drag_y))
+            self.last_drag_bary_uv = current_bary_uv
 
         # mouse warping
         if self.mouse_x > context.area.x + context.area.width:
@@ -222,10 +224,9 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
         tex_x_pixel_size = 1 / tex_x
         tex_y_pixel_size = 1 / tex_y
 
-        # settings
+        # update uvs
         snap_to_pixel = bpy.context.scene.nuv_settings.uv_edit_pixel_snap
 
-        mouse_drag_vec = Vector((-self.mouse_drag_x, -self.mouse_drag_y))
         for c in self.cached_uvs:
             for loop, base_uv in zip(c[2], c[3]):
                 uv = base_uv.copy()
@@ -428,6 +429,7 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
         self.alt_held = False
 
         self.uv_mode = "o"
+        self.last_drag_bary_uv = None
 
         # setup handlers
         self.handle_v = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback_v, (self, context), "WINDOW", "POST_VIEW")
