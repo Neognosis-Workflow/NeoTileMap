@@ -53,6 +53,8 @@ def draw_image_blender_4(image, verts, tex_coord, indices):
     shader_img.uniform_sampler("image", image)
     batch.draw(shader_img)
 
+    gpu.state.blend_set("NONE")
+
 
 def draw_transformed_image(image, area_width, area_height, zoom, offset_x, offset_y):
     """
