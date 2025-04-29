@@ -1,9 +1,17 @@
 import bgl
+import bpy
 import gpu
+import gpu_extras.presets
 from gpu_extras.batch import batch_for_shader
 
-shader_img = gpu.shader.from_builtin('2D_IMAGE')
-shader_color = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
+is_blender_4_or_greater = bpy.app.version[0] > 3
+
+if is_blender_4_or_greater:
+    shader_img = gpu.shader.from_builtin('IMAGE')
+    shader_color = gpu.shader.from_builtin('UNIFORM_COLOR')
+else:
+    shader_img = gpu.shader.from_builtin('2D_IMAGE')
+    shader_color = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
 
 
 def mouse_in_bounds(mouse_x, mouse_y, top_left, top_right, bottom_right, bottom_left):
@@ -13,6 +21,13 @@ def mouse_in_bounds(mouse_x, mouse_y, top_left, top_right, bottom_right, bottom_
 
 
 def draw_image(image, verts, tex_coord, indices):
+    if is_blender_4_or_greater:
+        draw_image_blender_4(image, verts, tex_coord, indices)
+    else:
+        draw_image_blender_3(image, verts, tex_coord, indices)
+
+
+def draw_image_blender_3(image, verts, tex_coord, indices):
     if image.gl_load():
         raise Exception()
 
@@ -30,6 +45,15 @@ def draw_image(image, verts, tex_coord, indices):
     bgl.glDisable(bgl.GL_BLEND)
 
 
+def draw_image_blender_4(image, verts, tex_coord, indices):
+    gpu.state.blend_set("ALPHA")
+
+    batch = batch_for_shader(shader_img, 'TRIS', {"pos": verts, "texCoord": tex_coord}, indices=indices)
+    shader_img.bind()
+    shader_img.uniform_sampler("image", image)
+    batch.draw(shader_img)
+
+
 def draw_transformed_image(image, area_width, area_height, zoom, offset_x, offset_y):
     """
     Draws a transformed image and returns additional information about the transformation of the image.
@@ -42,9 +66,13 @@ def draw_transformed_image(image, area_width, area_height, zoom, offset_x, offse
     :return: Array of img_aspect, quad_width, quad_height center_x, center_y, bottom_left, bottom_right, top_left and top_right
     """
     # calculate image size
-    img_res = image.size
-    res_x = img_res[0]
-    res_y = img_res[1]
+    if is_blender_4_or_greater:
+        res_x = image.width
+        res_y = image.height
+    else:
+        img_res = image.size
+        res_x = img_res[0]
+        res_y = img_res[1]
 
     new_width = res_x
     new_height = res_y
@@ -92,6 +120,27 @@ def draw_transformed_image(image, area_width, area_height, zoom, offset_x, offse
 
 
 def line_draw(pos_a, pos_b, color):
+    if is_blender_4_or_greater:
+        line_draw_blender_4(pos_a, pos_b, color)
+    else:
+        line_draw_blender_3(pos_a, pos_b, color)
+
+
+def line_draw_blender_4(pos_a, pos_b, color):
+    line = (pos_a, pos_b)
+    gpu.state.blend_set("ALPHA")
+    gpu.state.line_width_set(2.0)
+
+    batch = batch_for_shader(shader_color, 'LINES', {"pos": line})
+    shader_color.bind()
+    shader_color.uniform_float("color", color)
+    batch.draw(shader_color)
+
+    gpu.state.blend_set("NONE")
+    gpu.state.line_width_set(1.0)
+
+
+def line_draw_blender_3(pos_a, pos_b, color):
     bgl.glEnable(bgl.GL_BLEND)
     bgl.glLineWidth(2)
 

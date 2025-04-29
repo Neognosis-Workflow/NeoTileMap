@@ -15,19 +15,42 @@ import gpu_extras
 from gpu_extras.presets import draw_circle_2d
 from gpu_extras.batch import batch_for_shader
 
+is_blender_4_or_greater = bpy.app.version[0] > 3
+
+# blender 4.4 must have additional params for __init__
+is_blender_44_or_greater = is_blender_4_or_greater and bpy.app.version[1] > 3
+
 
 class NeoInteractiveUvEditor(bpy.types.Operator):
     bl_idname = "view3d.nuv_interactiveuveditor"
     bl_label = "Interactive Uv Editor"
     bl_options = {"REGISTER", "UNDO"}
 
-    def __init__(self):
-        # setup drawing data
-        self.line_shader = gpu.shader.from_builtin("3D_UNIFORM_COLOR")
-        self.circle_shader = gpu.shader.from_builtin("2D_UNIFORM_COLOR")
+    if is_blender_44_or_greater:
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
 
-        self.hit_result = None
-        super().__init__()
+            # setup drawing data
+            if is_blender_4_or_greater:
+                self.line_shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+                self.circle_shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+            else:
+                self.line_shader = gpu.shader.from_builtin("3D_UNIFORM_COLOR")
+                self.circle_shader = gpu.shader.from_builtin("2D_UNIFORM_COLOR")
+
+            self.hit_result = None
+    else:
+        def __init__(self):
+            # setup drawing data
+            if is_blender_4_or_greater:
+                self.line_shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+                self.circle_shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+            else:
+                self.line_shader = gpu.shader.from_builtin("3D_UNIFORM_COLOR")
+                self.circle_shader = gpu.shader.from_builtin("2D_UNIFORM_COLOR")
+
+            self.hit_result = None
+            super().__init__()
 
     def holding_modifier_key(self):
         return self.shift_held or self.ctrl_held or self.alt_held
@@ -391,8 +414,10 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
             if i == segments - 1:
                 tris.append((0, i, 1))
 
-
-        shader = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
+        if is_blender_4_or_greater:
+            shader = gpu.shader.from_builtin('UNIFORM_COLOR')
+        else:
+            shader = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
         batch = batch_for_shader(shader, "TRIS", {"pos": verts}, indices=tris)
         batch.draw(shader)
 

@@ -1,37 +1,71 @@
 import bpy
 
+# blender 4.4 must have additional params for __init__
+is_blender_44_or_greater = bpy.app.version[0] > 3 and bpy.app.version[1] > 3
+
 
 class NeoImageEditor(bpy.types.Operator):
     """Base class for all neognosis image editor tools."""
 
-    def __init__(self):
-        super().__init__()
+    if is_blender_44_or_greater:
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
 
-        # mouse data
-        self.mouse_held = [False, False, False]
-        self.mouse_x = 0.0
-        self.mouse_y = 0.0
-        self.mouse_prev_x = 0.0
-        self.mouse_prev_y = 0.0
-        self.mouse_region_x = 0.0
-        self.mouse_region_y = 0.0
-        self.mouse_delta_x = 0.0
-        self.mouse_delta_y = 0.0
+            # mouse data
+            self.mouse_held = [False, False, False]
+            self.mouse_x = 0.0
+            self.mouse_y = 0.0
+            self.mouse_prev_x = 0.0
+            self.mouse_prev_y = 0.0
+            self.mouse_region_x = 0.0
+            self.mouse_region_y = 0.0
+            self.mouse_delta_x = 0.0
+            self.mouse_delta_y = 0.0
 
-        # editor data
-        self.zoom = 0.5
-        self.offset_x = 0.0
-        self.offset_y = 0.0
-        self.image = None
+            # editor data
+            self.zoom = 0.5
+            self.offset_x = 0.0
+            self.offset_y = 0.0
+            self.image = None
 
-        # grid data
-        self.grid_x = 16
-        self.grid_y = 16
+            # grid data
+            self.grid_x = 16
+            self.grid_y = 16
 
-        # reports
-        self.report_finished = {'FINISHED'}
-        self.report_cancelled = {'CANCELLED'}
-        self.report_running = {'RUNNING_MODAL'}
+            # reports
+            self.report_finished = {'FINISHED'}
+            self.report_cancelled = {'CANCELLED'}
+            self.report_running = {'RUNNING_MODAL'}
+
+    else:
+        def __init__(self):
+            super().__init__()
+
+            # mouse data
+            self.mouse_held = [False, False, False]
+            self.mouse_x = 0.0
+            self.mouse_y = 0.0
+            self.mouse_prev_x = 0.0
+            self.mouse_prev_y = 0.0
+            self.mouse_region_x = 0.0
+            self.mouse_region_y = 0.0
+            self.mouse_delta_x = 0.0
+            self.mouse_delta_y = 0.0
+
+            # editor data
+            self.zoom = 0.5
+            self.offset_x = 0.0
+            self.offset_y = 0.0
+            self.image = None
+
+            # grid data
+            self.grid_x = 16
+            self.grid_y = 16
+
+            # reports
+            self.report_finished = {'FINISHED'}
+            self.report_cancelled = {'CANCELLED'}
+            self.report_running = {'RUNNING_MODAL'}
 
     def modal(self, context, event):
 

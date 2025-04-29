@@ -1,9 +1,15 @@
 import bpy
+import gpu
 from . import nImageEditor
 from . import nUtil
 from . import nTileStorage
 from . import nMath
 import mathutils
+
+is_blender_4_or_greater = bpy.app.version[0] > 3
+
+# blender 4.4 must have additional params for __init__
+is_blender_44_or_greater = is_blender_4_or_greater and bpy.app.version[1] > 3
 
 
 class NeoInteractiveRectSelector(nImageEditor.NeoImageEditor):
@@ -12,18 +18,30 @@ class NeoInteractiveRectSelector(nImageEditor.NeoImageEditor):
 
     collectionIdx: bpy.props.IntProperty()
 
-    def __init__(self):
-        self.dragging = False
-        self.finished = False
-        self.highlighted_Item = None
+    if is_blender_44_or_greater:
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
 
-        super().__init__()
+            self.dragging = False
+            self.finished = False
+            self.highlighted_Item = None
+    else:
+        def __init__(self):
+            self.dragging = False
+            self.finished = False
+            self.highlighted_Item = None
+
+            super().__init__()
 
     def on_open(self, context, event):
         self.collection = bpy.context.scene.nuv_uvSets[self.collectionIdx]
 
         img_name = f"Atlas_{self.collection.name}"
-        image = bpy.data.images[img_name]
+
+        if is_blender_4_or_greater:
+            image = gpu.texture.from_image(bpy.data.images[img_name])
+        else:
+            image = bpy.data.images[img_name]
 
         args = (self, image, self.collection.items, context)
         self.handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_tool, args, 'WINDOW', 'POST_PIXEL')
