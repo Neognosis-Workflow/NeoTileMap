@@ -1,4 +1,4 @@
-**NeoTileMap currently doesn't work for Blender 4.0 or above. The maximum supported version is 3.6.**
+**NeoTileMap when running in Blender 4+ will have texture filtering in the UV selector interface due to a limitation in the now required GPU module**
 
 # NeoTileMap
 
