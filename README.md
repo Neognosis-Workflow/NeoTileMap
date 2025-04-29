@@ -1,3 +1,5 @@
+**NeoTileMap currently doesn't work for Blender 4.0 or above. The maximum supported version is 3.6.**
+
 # NeoTileMap
 
 NeoTileMap is the Blender addon for the Tilemap Builder tool for BallisticNG, adding tilemap based UVing tools into Blender.
