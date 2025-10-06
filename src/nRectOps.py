@@ -1,8 +1,9 @@
+# region Imports
 import bpy
 import gpu
-from . import nImageEditor
+from . import nImageOp
 from . import nUtil
-from . import nTileStorage
+from . import nData
 from . import nMath
 import mathutils
 
@@ -11,27 +12,32 @@ is_blender_4_or_greater = bpy.app.version[0] > 3
 # blender 4.4 must have additional params for __init__
 is_blender_44_or_greater = is_blender_4_or_greater and bpy.app.version[1] > 3
 
+# endregion
 
-class NeoInteractiveRectSelector(nImageEditor.NeoImageEditor):
-    bl_idname = "view3d.nuv_interactiverectselector"
-    bl_label = "Interactive Rect Selector"
+# region Operators
+
+
+# noinspection PyAttributeOutsideInit
+class NeoRectSelector(nImageOp.NeoImageOperator):
+    bl_idname = "view3d.nuv_rect_selector"
+    bl_label = "Rect Selector"
 
     collectionIdx: bpy.props.IntProperty()
 
     if is_blender_44_or_greater:
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-
-            self.dragging = False
-            self.finished = False
-            self.highlighted_Item = None
+            self.init()
     else:
         def __init__(self):
-            self.dragging = False
-            self.finished = False
-            self.highlighted_Item = None
-
             super().__init__()
+            self.init()
+
+    def init(self):
+        super().init()
+        self.dragging = False
+        self.finished = False
+        self.highlighted_Item = None
 
     def on_open(self, context, event):
         self.collection = bpy.context.scene.nuv_uvSets[self.collectionIdx]
@@ -56,8 +62,11 @@ class NeoInteractiveRectSelector(nImageEditor.NeoImageEditor):
 
         return self.finished
 
-    def on_mouse_down(self, context, buttonIndex):
-        if buttonIndex == 0:
+    def on_rect_selected(self, collection_idx, rect_idx):
+        pass
+
+    def on_mouse_down(self, context, btn_idx):
+        if btn_idx == 0:
             if self.highlighted_Item is None:
                 return
             else:
@@ -69,16 +78,16 @@ class NeoInteractiveRectSelector(nImageEditor.NeoImageEditor):
                     if self.highlighted_Item.__eq__(item):
                         break
 
-                op = bpy.ops.neo.uv_setuvrect('INVOKE_DEFAULT', collectionIdx = self.collectionIdx, rectIdx = idx)
+                self.on_rect_selected(self.collectionIdx, idx)
 
-        if buttonIndex == 2:
+        if btn_idx == 2:
             self.dragging = True
 
-        if buttonIndex == 1:
+        if btn_idx == 1:
             self.finished = True
 
-    def on_mouse_up(self, context, buttonIndex):
-        if buttonIndex == 2:
+    def on_mouse_up(self, context, btn_idx):
+        if btn_idx == 2:
             self.dragging = False
 
     def on_scroll_down(self, context):
@@ -149,10 +158,10 @@ class NeoInteractiveRectSelector(nImageEditor.NeoImageEditor):
 
             # draw items
             for item in self.collection.items:
-                top_left = center + mathutils.Vector(item.topLeft()) * size
-                top_right = center + mathutils.Vector(item.topRight()) * size
-                bottom_right = center + mathutils.Vector(item.bottomRight()) * size
-                bottom_left = center + mathutils.Vector(item.bottomLeft()) * size
+                top_left = center + mathutils.Vector(item.top_left()) * size
+                top_right = center + mathutils.Vector(item.top_right()) * size
+                bottom_right = center + mathutils.Vector(item.bottom_right()) * size
+                bottom_left = center + mathutils.Vector(item.bottom_left()) * size
 
                 mouse_in_bounds = nUtil.mouse_in_bounds(self.mouse_region_x, self.mouse_region_y, top_left, top_right, bottom_right, bottom_left)
                 if mouse_in_bounds and not has_highlight and not self.dragging:
@@ -179,8 +188,20 @@ class NeoInteractiveRectSelector(nImageEditor.NeoImageEditor):
             self.highlighted_Item = None
 
 
+class NeoSetUvRectSelector(NeoRectSelector):
+    bl_idname = "view3d.nuv_set_uv_rect_selector"
+    bl_label = "Set UV Rect Selector"
+
+    def on_rect_selected(self, collection_idx, rect_idx):
+        bpy.ops.neo.uv_setuvrect('INVOKE_DEFAULT', collectionIdx=collection_idx, rectIdx=rect_idx)
+
+# endregion
+
+# region Blender
+
+
 classes = (
-    NeoInteractiveRectSelector,
+    NeoSetUvRectSelector,
 )
 
 
@@ -192,3 +213,5 @@ def register():
 def unregister():
     for c in classes:
         bpy.utils.unregister_class(c)
+
+#endregion

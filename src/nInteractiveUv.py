@@ -1,3 +1,5 @@
+# region Imports
+
 import sys
 
 import bpy
@@ -20,7 +22,12 @@ is_blender_4_or_greater = bpy.app.version[0] > 3
 # blender 4.4 must have additional params for __init__
 is_blender_44_or_greater = is_blender_4_or_greater and bpy.app.version[1] > 3
 
+# endregion
 
+# region Operators
+
+
+# noinspection PyAttributeOutsideInit
 class NeoInteractiveUvEditor(bpy.types.Operator):
     bl_idname = "view3d.nuv_interactiveuveditor"
     bl_label = "Interactive Uv Editor"
@@ -29,28 +36,22 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
     if is_blender_44_or_greater:
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-
-            # setup drawing data
-            if is_blender_4_or_greater:
-                self.line_shader = gpu.shader.from_builtin("UNIFORM_COLOR")
-                self.circle_shader = gpu.shader.from_builtin("UNIFORM_COLOR")
-            else:
-                self.line_shader = gpu.shader.from_builtin("3D_UNIFORM_COLOR")
-                self.circle_shader = gpu.shader.from_builtin("2D_UNIFORM_COLOR")
-
-            self.hit_result = None
+            self.init()
     else:
         def __init__(self):
-            # setup drawing data
-            if is_blender_4_or_greater:
-                self.line_shader = gpu.shader.from_builtin("UNIFORM_COLOR")
-                self.circle_shader = gpu.shader.from_builtin("UNIFORM_COLOR")
-            else:
-                self.line_shader = gpu.shader.from_builtin("3D_UNIFORM_COLOR")
-                self.circle_shader = gpu.shader.from_builtin("2D_UNIFORM_COLOR")
-
-            self.hit_result = None
             super().__init__()
+            self.init()
+
+    def init(self):
+        # setup drawing data
+        if is_blender_4_or_greater:
+            self.line_shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+            self.circle_shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+        else:
+            self.line_shader = gpu.shader.from_builtin("3D_UNIFORM_COLOR")
+            self.circle_shader = gpu.shader.from_builtin("2D_UNIFORM_COLOR")
+
+        self.hit_result = None
 
     def holding_modifier_key(self):
         return self.shift_held or self.ctrl_held or self.alt_held
@@ -58,7 +59,7 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
     def modal(self, context, event):
         context.area.tag_redraw()
 
-        if (event.type == "ESCAPE" or event.type == "RET") and event.value == "PRESS":
+        if (event.type == "ESC" or event.type == "RET") and event.value == "PRESS":
             self.finished()
             return {"FINISHED"}
 
@@ -365,7 +366,6 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
                 line_batch = batch_for_shader(self.line_shader, "LINES", {"pos": line_coords})
                 line_batch.draw(self.line_shader)
 
-
     @staticmethod
     def draw_callback_px(self, context):
         region = bpy.context.region
@@ -463,6 +463,10 @@ class NeoInteractiveUvEditor(bpy.types.Operator):
 
         return {'RUNNING_MODAL'}
 
+# endregion
+
+# region Blender
+
 
 classes = (
     NeoInteractiveUvEditor,
@@ -477,3 +481,5 @@ def register():
 def unregister():
     for c in classes:
         bpy.utils.unregister_class(c)
+
+# endregion

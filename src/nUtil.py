@@ -1,3 +1,5 @@
+# region Imports
+
 import bgl
 import bpy
 import gpu
@@ -12,6 +14,10 @@ if is_blender_4_or_greater:
 else:
     shader_img = gpu.shader.from_builtin('2D_IMAGE')
     shader_color = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
+
+# endregion
+
+# region Methods
 
 
 def mouse_in_bounds(mouse_x, mouse_y, top_left, top_right, bottom_right, bottom_left):
@@ -187,10 +193,4 @@ def abs_uv(uv):
     uv[1] = (uv[1] + 1.0) / 2.0
     return uv
 
-
-def register():
-    pass
-
-
-def unregister():
-    pass
+# endregion

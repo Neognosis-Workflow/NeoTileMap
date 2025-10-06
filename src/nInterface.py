@@ -1,11 +1,21 @@
+# region Imports
+
 import bpy
 import bmesh
 import mathutils
 from . import nMath
-from . import nUvTools
+from . import nUv
 
-nuv_maxItemPerPage = 20
-nuv_previewScale = 6.0
+# endregion
+
+# region Settings
+
+nuv_max_item_per_page = 20
+nuv_preview_scale = 6.0
+
+# endregion
+
+# region Operators
 
 
 class NeoUvUiSettings(bpy.types.PropertyGroup):
@@ -66,24 +76,59 @@ class NeoUvUiSettings(bpy.types.PropertyGroup):
     )
 
 
-classes = (
-    NeoUvUiSettings,
-)
+class UtilOpNeoUvUiFirstPage(bpy.types.Operator):
+    bl_idname = "neo.uv_uifirstpage"
+    bl_label = "First Page"
+    bl_description = ""
+
+    collectionIdx: bpy.props.IntProperty()
+    
+    def invoke(self, context, event):
+        bpy.context.scene.nuv_uvSets[self.collectionIdx].page = 0
+        return {'FINISHED'}
 
 
-def register():
-    for c in classes:
-        bpy.utils.register_class(c)
+class UtilOpNeoUvUiNextPage(bpy.types.Operator):
+    bl_idname = "neo.uv_uinextpage"
+    bl_label = "Next Page"
+    bl_description = ""
 
-    bpy.types.Scene.nuv_settings = bpy.props.PointerProperty(type=NeoUvUiSettings)
+    collectionIdx: bpy.props.IntProperty()
+
+    def invoke(self, context, event):
+        items_len = len(bpy.context.scene.nuv_uvSets[self.collectionIdx].items)
+
+        page = bpy.context.scene.nuv_uvSets[self.collectionIdx].page
+        page += 1
+
+        if page * nuv_max_item_per_page > items_len: page -= 1
+
+        bpy.context.scene.nuv_uvSets[self.collectionIdx].page = page
+        return {'FINISHED'}
 
 
-def unregister():
-    for c in classes:
-        bpy.utils.unregister_class(c)
+class UtilOpNeoUvUiPrevPage(bpy.types.Operator):
+    bl_idname = "neo.uv_uiprevpage"
+    bl_label = "Previous Page"
+    bl_description = ""
+
+    collectionIdx: bpy.props.IntProperty()
+
+    def invoke(self, context, event):
+        page = bpy.context.scene.nuv_uvSets[self.collectionIdx].page
+        page -= 1
+        if page < 0: page = 0
+
+        bpy.context.scene.nuv_uvSets[self.collectionIdx].page = page
+
+        return {'FINISHED'}
+
+# endregion
+
+# region Interface Drawing
 
 
-def draw_tile_set_ui(layout, context):
+def ui_draw(layout, context):
 
     settings = bpy.context.scene.nuv_settings
 
@@ -100,7 +145,7 @@ def ui_draw_settings(layout, context, settings):
     # header
     container = layout.box()
 
-    container.prop(settings, "settings_expanded", icon=ui_get_expander_icon(settings.settings_expanded), emboss=False, text="Settings")
+    container.prop(settings, "settings_expanded", icon=get_expander_icon(settings.settings_expanded), emboss=False, text="Settings")
     if not settings.settings_expanded:
         return
 
@@ -153,7 +198,7 @@ def ui_draw_manip_tools(layout, context, settings):
     # header
     container = layout.box()
 
-    container.prop(settings, "tools_expanded", icon=ui_get_expander_icon(settings.tools_expanded), emboss=False, text="Tools")
+    container.prop(settings, "tools_expanded", icon=get_expander_icon(settings.tools_expanded), emboss=False, text="Tools")
     if not settings.tools_expanded:
         return
 
@@ -213,12 +258,12 @@ def ui_draw_rects(layout, context, settings):
     # header
     container = layout.box()
 
-    container.prop(settings, "rects_expanded", icon=ui_get_expander_icon(settings.rects_expanded), emboss=False, text="Rect Sets")
+    container.prop(settings, "rects_expanded", icon=get_expander_icon(settings.rects_expanded), emboss=False, text="Rect Sets")
     if not settings.rects_expanded:
         return
 
     container = container.box()
-    max_items_per_row = round(context.region.width / (32 * nuv_previewScale))
+    max_items_per_row = round(context.region.width / (32 * nuv_preview_scale))
 
     collection_list = bpy.context.scene.nuv_uvSets
     for i in range(0, len(collection_list)):
@@ -232,7 +277,7 @@ def ui_draw_rect_list(c, i, max_items_per_row, layout, context):
     row = layout.row()
     split = row.split(factor=0.9, align=True)
 
-    split.prop(c, "expanded", icon=ui_get_expander_icon(c.expanded), emboss=True, text=c.name)
+    split.prop(c, "expanded", icon=get_expander_icon(c.expanded), emboss=True, text=c.name)
     split.alert = True
 
     op = split.operator("neo.uvset_delete", icon="TRASH", text="")
@@ -254,11 +299,11 @@ def ui_draw_rect_list(c, i, max_items_per_row, layout, context):
         op = split.operator("neo.uv_uireload", text="", icon="FILE_REFRESH")
         op.collectionIdx = i
 
-    op = layout.operator("view3d.nuv_interactiverectselector", text="Select UV", icon="UV_FACESEL", emboss=True)
+    op = layout.operator("view3d.nuv_set_uv_rect_selector", text="Select UV", icon="UV_FACESEL", emboss=True)
     op.collectionIdx = i
 
     # manual UV selector
-    layout.prop(c, "items_expanded", icon=ui_get_expander_icon(c.items_expanded), emboss=True, text="Rect List")
+    layout.prop(c, "items_expanded", icon=get_expander_icon(c.items_expanded), emboss=True, text="Rect List")
 
     if not c.items_expanded:
         return True
@@ -276,11 +321,11 @@ def ui_draw_rect_list(c, i, max_items_per_row, layout, context):
     op.collectionIdx = i
 
     # calculate page range
-    start = c.page * nuv_maxItemPerPage
+    start = c.page * nuv_max_item_per_page
     if start > item_len - 1:
         start = item_len - 1
 
-    end = start + nuv_maxItemPerPage
+    end = start + nuv_max_item_per_page
 
     # draw selection interface
     image_box = layout.column()
@@ -307,7 +352,7 @@ def ui_draw_rect_list(c, i, max_items_per_row, layout, context):
 
         # draw button grid
         col = image_row.column()
-        col.template_icon(icon_value=preview_image.preview.icon_id, scale=nuv_previewScale)
+        col.template_icon(icon_value=preview_image.preview.icon_id, scale=nuv_preview_scale)
 
         op = col.operator("neo.uv_setuvrect", text="Apply")
         op.collectionIdx = i
@@ -330,7 +375,7 @@ def get_image_by_name(n):
     return None
 
 
-def ui_get_expander_icon(toggled):
+def get_expander_icon(toggled):
     """
     Returns the icon to use for expanders.
     """
@@ -338,10 +383,36 @@ def ui_get_expander_icon(toggled):
     return "DOWNARROW_HLT" if toggled else "RIGHTARROW"
 
 
-def ui_get_expander_string(toggled, name):
+def get_expander_string(toggled, name):
     """
     Returns the string to use as the text for an expander.
     """
 
     expand_str = "Hide " if toggled else "Show "
     return expand_str + name
+
+# endregion
+
+# region Blender
+
+
+classes = (
+    NeoUvUiSettings,
+    UtilOpNeoUvUiFirstPage,
+    UtilOpNeoUvUiNextPage,
+    UtilOpNeoUvUiPrevPage,
+)
+
+
+def register():
+    for c in classes:
+        bpy.utils.register_class(c)
+
+    bpy.types.Scene.nuv_settings = bpy.props.PointerProperty(type=NeoUvUiSettings)
+
+
+def unregister():
+    for c in classes:
+        bpy.utils.unregister_class(c)
+
+# endregion

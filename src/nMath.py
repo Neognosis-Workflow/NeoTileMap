@@ -1,8 +1,13 @@
 """Contains helper methods for math"""
 
+# region Imports
+
 import mathutils
 import math
 
+#endregion
+
+# region Methods
 
 def inverse_lerp(a, b, v, clamp):
     """Returns V as the T value between A and B."""
@@ -154,13 +159,8 @@ def calculate_uv_from_raycast_custom_verts(hit_loc, face, verts, uv_layer):
 
     return uv
 
+
 def dist_2d(a, b):
     return (a - b).magnitude
 
-
-def register():
-    pass
-
-
-def unregister():
-    pass
+# endregion

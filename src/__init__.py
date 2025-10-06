@@ -1,24 +1,20 @@
+# region Imports
+
 from importlib import reload
 import bpy
-from . import nTileStorage
+from . import nData
 from . import nMath
-from . import nTileUi
-from . import nUvTools
-from . import nImageEditor
-from . import nInteractiveRectSelector
+from . import nInterface
+from . import nUv
+from . import nImageOp
+from . import nRectOps
 from . import nInteractiveUv
 from . import nUtil
+import inspect
 
-bl_info = {
-    "name" : "Neognosis Tile Mapper",
-    "author" : "Adam Chivers",
-    "description" : "",
-    "blender" : (2, 90, 0),
-    "version" : (1, 3),
-    "location" : "",
-    "warning" : "",
-    "category" : "Generic"
-}
+# endregion
+
+# region Data
 
 class VIEW3D_PT_NeoTmPanel(bpy.types.Panel):
     bl_idname = 'VIEW3D_PT_NeoTmPanel'
@@ -38,21 +34,35 @@ class VIEW3D_PT_NeoTmPanel(bpy.types.Panel):
         obj = context.object
 
         row = layout.row(align=True)
-        nTileUi.draw_tile_set_ui(layout, context)
+        nInterface.ui_draw(layout, context)
         return
 
+# endregion
+
+# region Blender
+
+bl_info = {
+    "name" : "Neognosis Tile Mapper",
+    "author" : "Adam Chivers",
+    "description" : "",
+    "blender" : (2, 90, 0),
+    "version" : (1, 3),
+    "location" : "",
+    "warning" : "",
+    "category" : "Generic"
+}
 
 classes = (
     VIEW3D_PT_NeoTmPanel,
 )
 
 modules = (
-    nTileStorage,
-    nTileUi,
+    nData,
+    nInterface,
     nMath,
-    nUvTools,
-    nImageEditor,
-    nInteractiveRectSelector,
+    nUv,
+    nImageOp,
+    nRectOps,
     nInteractiveUv,
     nUtil,
 )
@@ -64,7 +74,8 @@ def register():
         
     for m in modules:
         reload(m)
-        m.register()
+        if hasattr(m, "register"):
+            m.register()
 
 
 def unregister():
@@ -72,7 +83,11 @@ def unregister():
         bpy.utils.unregister_class(c)
 
     for m in modules:
-        m.unregister()
+        if hasattr(m, "unregister"):
+            m.unregister()
+
 
 if __name__ == '__main__':
     register()
+
+# endregion

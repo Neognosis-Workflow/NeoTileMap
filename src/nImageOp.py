@@ -1,71 +1,54 @@
+# region Imports
+
 import bpy
 
 # blender 4.4 must have additional params for __init__
 is_blender_44_or_greater = bpy.app.version[0] > 3 and bpy.app.version[1] > 3
 
+# endregion
 
-class NeoImageEditor(bpy.types.Operator):
+# region Operators
+
+# noinspection PyAttributeOutsideInit
+class NeoImageOperator(bpy.types.Operator):
     """Base class for all neognosis image editor tools."""
 
     if is_blender_44_or_greater:
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-
-            # mouse data
-            self.mouse_held = [False, False, False]
-            self.mouse_x = 0.0
-            self.mouse_y = 0.0
-            self.mouse_prev_x = 0.0
-            self.mouse_prev_y = 0.0
-            self.mouse_region_x = 0.0
-            self.mouse_region_y = 0.0
-            self.mouse_delta_x = 0.0
-            self.mouse_delta_y = 0.0
-
-            # editor data
-            self.zoom = 0.5
-            self.offset_x = 0.0
-            self.offset_y = 0.0
-            self.image = None
-
-            # grid data
-            self.grid_x = 16
-            self.grid_y = 16
-
-            # reports
-            self.report_finished = {'FINISHED'}
-            self.report_cancelled = {'CANCELLED'}
-            self.report_running = {'RUNNING_MODAL'}
+            self.init()
 
     else:
         def __init__(self):
             super().__init__()
+            self.init()
 
-            # mouse data
-            self.mouse_held = [False, False, False]
-            self.mouse_x = 0.0
-            self.mouse_y = 0.0
-            self.mouse_prev_x = 0.0
-            self.mouse_prev_y = 0.0
-            self.mouse_region_x = 0.0
-            self.mouse_region_y = 0.0
-            self.mouse_delta_x = 0.0
-            self.mouse_delta_y = 0.0
+    def init(self):
+        # mouse data
+        self.mouse_held = [False, False, False]
+        self.mouse_x = 0.0
+        self.mouse_y = 0.0
+        self.mouse_prev_x = 0.0
+        self.mouse_prev_y = 0.0
+        self.mouse_region_x = 0.0
+        self.mouse_region_y = 0.0
+        self.mouse_delta_x = 0.0
+        self.mouse_delta_y = 0.0
 
-            # editor data
-            self.zoom = 0.5
-            self.offset_x = 0.0
-            self.offset_y = 0.0
-            self.image = None
+        # editor data
+        self.zoom = 0.5
+        self.offset_x = 0.0
+        self.offset_y = 0.0
+        self.image = None
 
-            # grid data
-            self.grid_x = 16
-            self.grid_y = 16
+        # grid data
+        self.grid_x = 16
+        self.grid_y = 16
 
-            # reports
-            self.report_finished = {'FINISHED'}
-            self.report_cancelled = {'CANCELLED'}
-            self.report_running = {'RUNNING_MODAL'}
+        # reports
+        self.report_finished = {'FINISHED'}
+        self.report_cancelled = {'CANCELLED'}
+        self.report_running = {'RUNNING_MODAL'}
 
     def modal(self, context, event):
 
@@ -120,50 +103,50 @@ class NeoImageEditor(bpy.types.Operator):
     def on_close(self, context, event):
         """Called when the image editor is closed."""
 
-    def __handle_mouse_event(self, context, event, buttonIndex):
+    def __handle_mouse_event(self, context, event, btn_idx):
         """Handles a mouse input event and updates the class
 
         Args:
             context (context): The context provided by Blender
             event (bool): The event provided by Blender
-            buttonIndex (int): The index of the button that was pressed
+            btn_idx (int): The index of the button that was pressed
         """
         if event.value == 'PRESS':
-            self.on_mouse_down(context, buttonIndex)
-            self.mouse_held[buttonIndex] = True
+            self.on_mouse_down(context, btn_idx)
+            self.mouse_held[btn_idx] = True
 
         if event.value == 'RELEASE':
-            self.on_mouse_up(context, buttonIndex)
-            self.mouse_held[buttonIndex] = False
+            self.on_mouse_up(context, btn_idx)
+            self.mouse_held[btn_idx] = False
 
-        if self.mouse_held[buttonIndex]:
-            self.on_mouse_held(context, buttonIndex)
+        if self.mouse_held[btn_idx]:
+            self.on_mouse_held(context, btn_idx)
 
     def __report_should_return(self, report):
         return report in (self.report_finished, self.report_cancelled)
 
-    def on_mouse_down(self, context, buttonIndex):
+    def on_mouse_down(self, context, btn_idx):
         """Called when a mouse button is pressed down.
 
         Args:
             context (context): The context provided by Blender
-            buttonIndex (int): The index of the button that was pressed
+            btn_idx (int): The index of the button that was pressed
         """
 
-    def on_mouse_up(self, context, buttonIndex):
+    def on_mouse_up(self, context, btn_idx):
         """Called when a mouse button is released.
 
         Args:
             context (context): The context provided by Blender
-            buttonIndex (int): The index of the button that was released
+            btn_idx (int): The index of the button that was released
         """
 
-    def on_mouse_held(self, context, buttonIndex):
+    def on_mouse_held(self, context, btn_idx):
         """Called when a mouse button is held
 
         Args:
             context (context): The context provided by Blender
-            buttonIndex (int): The index of the button that is held
+            btn_idx (int): The index of the button that is held
         """
 
     def on_scroll_up(self, context):
@@ -179,9 +162,4 @@ class NeoImageEditor(bpy.types.Operator):
         Args:
             context (context): The context provided by Blender
         """
-
-def register():
-    pass
-
-def unregister():
-    pass
+# endregion
