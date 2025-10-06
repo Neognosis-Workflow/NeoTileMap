@@ -15,6 +15,20 @@ from . import nData
 # region Global Methods
 
 
+def paint_post_unwrap(event, face, uv_layer):
+    if event.alt:
+        if event.shift:
+            rotate(False, face, False, uv_layer)
+        elif event.ctrl:
+            rotate(False, face, True, uv_layer)
+            rotate(False, face, True, uv_layer)
+        else:
+            rotate(False, face, True, uv_layer)
+
+    elif event.ctrl:
+        flip(False, face, not event.shift, uv_layer)
+
+
 def get_best_rect_for_face(face, uv_layer, collection):
 
     # calculate center

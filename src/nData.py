@@ -218,6 +218,9 @@ class NeoTileRectCollection(bpy.types.PropertyGroup):
         if self.active_pattern > items_len - 1:
             self.active_pattern = items_len - 1
 
+    def move_pattern(self, pattern_idx, amount):
+        self.patterns.move(pattern_idx, pattern_idx - amount)
+
     def get_active_pattern(self):
         if self.active_pattern < 0:
             return None
@@ -271,6 +274,31 @@ class NeoTileDeletePattern(bpy.types.Operator):
     def invoke(self, context, event):
         bpy.ops.ed.undo_push(message="Delete Pattern")
         get_collection_by_idx(self.collectionIdx).remove_pattern()
+
+        return {'FINISHED'}
+
+
+class NeoTileMovePattern(bpy.types.Operator):
+    bl_idname = "neo.uvset_move_pattern"
+    bl_label = "Move Pattern"
+    bl_description = ""
+    bl_options = {"REGISTER", "UNDO"}
+
+    collectionIdx: bpy.props.IntProperty()
+    patternIdx: bpy.props.IntProperty()
+    up: bpy.props.BoolProperty()
+
+    def invoke(self, context, event):
+        bpy.ops.ed.undo_push(message="Move Pattern")
+        collection = get_collection_by_idx(self.collectionIdx)
+
+        amount = 1 if self.up else -1
+        collection.move_pattern(self.patternIdx, amount)
+        collection.active_pattern -= amount
+
+        patterns_len = len(collection.patterns.items())
+        if collection.active_pattern < 0: collection.active_pattern = 0
+        if collection.active_pattern > patterns_len - 1: collection.active_pattern = patterns_len - 1
 
         return {'FINISHED'}
 
@@ -660,6 +688,7 @@ classes = (
     NeoTileDeleteCollection,
     NeoTileAddPattern,
     NeoTileDeletePattern,
+    NeoTileMovePattern,
     NeoTileMovePatternRect,
     NeoTileAddPatternRect,
     NeoTileSetPatternRect,

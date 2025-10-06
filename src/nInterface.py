@@ -421,6 +421,20 @@ def ui_draw_collection_patterns(collection, idx, layout, in_edit_mode):
     op = col.operator("neo.uvset_delete_pattern", text="", icon="REMOVE")
     op.collectionIdx = idx
 
+    col.separator(factor=5)
+
+    col.enabled = patterns_len > 0
+    op = col.operator("neo.uvset_move_pattern", text="", icon="TRIA_UP")
+    op.up = True
+    op.collectionIdx = idx
+    op.patternIdx = collection.active_pattern
+
+    col.enabled = patterns_len > 0
+    op = col.operator("neo.uvset_move_pattern", text="", icon="TRIA_DOWN")
+    op.up = False
+    op.collectionIdx = idx
+    op.patternIdx = collection.active_pattern
+
     active_pattern = collection.get_active_pattern()
 
     if active_pattern is None:

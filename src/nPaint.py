@@ -136,8 +136,7 @@ class NeoPaint(bpy.types.Operator):
         nUv.unwrap_auto(space_mode, False, context, self.obj.matrix_world, face,
                         unwrap_mode, correct_aspect, snap_to_bounds, self.rect, uv_layer)
 
-        if event.ctrl:
-            nUv.flip(False, face, not event.shift, uv_layer)
+        nUv.paint_post_unwrap(event, face, uv_layer)
 
         # increment and update
         bmesh.update_edit_mesh(self.mesh, loop_triangles=False, destructive=False)
@@ -178,7 +177,10 @@ class NeoPaint(bpy.types.Operator):
 
         # try finish
         right_mouse = event.type == "RIGHTMOUSE"
-        if nUtil.should_modal_escape(event) or right_mouse:
+        if right_mouse and event.alt:
+            if self.hit_face:
+                self.try_set_rect_from_face(context, self.hit_face)
+        elif nUtil.should_modal_escape(event) or right_mouse:
             self.finished()
 
             if right_mouse:
@@ -215,10 +217,7 @@ class NeoPaint(bpy.types.Operator):
             self.last_hit_face = self.hit_face
 
             if self.hit_face is not None and self.left_mouse_held:
-                if event.alt:
-                    self.try_set_rect_from_face(context, self.hit_face)
-                else:
-                    self.unwrap(context, self.hit_face, event)
+                self.unwrap(context, self.hit_face, event)
 
         if self.left_mouse_held or event.type == "LEFTMOUSE":
             return {"RUNNING_MODAL"}
