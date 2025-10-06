@@ -1,5 +1,6 @@
 # region Imports
 
+import sys
 import bgl
 import bpy
 
@@ -24,6 +25,7 @@ else:
 
 # region Methods
 
+raycast_epsilon = sys.float_info.epsilon
 
 def mouse_in_bounds(mouse_x, mouse_y, top_left, top_right, bottom_right, bottom_left):
     mouse_x_in_bounds = top_left.x < mouse_x < top_right.x

@@ -82,7 +82,7 @@ class NeoPaint(bpy.types.Operator):
         self.obj = bpy.context.object
         self.mesh = self.obj.data
         self.edit_mesh = bmesh.from_edit_mesh(self.mesh)
-        self.tree = BVHTree.FromBMesh(self.edit_mesh, epsilon=0.1)
+        self.tree = BVHTree.FromBMesh(self.edit_mesh, epsilon=nUtil.raycast_epsilon)
         self.hit_face = None
         self.last_hit_face = None
         self.hit_component = None
