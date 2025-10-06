@@ -139,10 +139,12 @@ class NeoPatternPaint(bpy.types.Operator):
 
         # update uv
         pattern_rect = self.items[self.paint_idx][1]
-        rect = pattern_rect.get_rect(self.collection)
 
-        nUv.unwrap_auto(space_mode, False, context, self.obj.matrix_world, {face},
-                        unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer)
+        if pattern_rect.rect_idx > -1:
+            rect = pattern_rect.get_rect(self.collection)
+
+            nUv.unwrap_auto(space_mode, False, context, self.obj.matrix_world, {face},
+                            unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer)
 
         # increment and update
         self.paint_idx += 1

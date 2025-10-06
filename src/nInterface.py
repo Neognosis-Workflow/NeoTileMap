@@ -13,6 +13,7 @@ from . import nUv
 nuv_sidebar_category = "Neognosis"
 nuv_max_item_per_page = 20
 nuv_preview_scale = 6.0
+nuv_pattern_preview_scale = 5.0
 nuv_settings_only = False
 
 # endregion
@@ -156,6 +157,16 @@ class UtilOpNeoUvUiPrevPage(bpy.types.Operator):
 # endregion
 
 # region Interface Drawing
+
+
+def get_icon_value(name):
+    items = bpy.types.UILayout.bl_rna.functions["prop"].parameters["icon"].enum_items.items()
+    dict = {tup[1].identifier : tup[1].value for tup in items}
+
+    return dict[name]
+
+
+rect_missing_icon = get_icon_value("CANCEL")
 
 
 def only_draw_settings_this_frame():
@@ -330,7 +341,13 @@ def ui_draw_rects(layout, context, settings, in_edit_mode):
     max_items_per_row = round(context.region.width / (32 * nuv_preview_scale))
 
     collection_list = bpy.context.scene.nuv_uvSets
-    for i in range(0, len(collection_list)):
+    collection_len = len(collection_list)
+
+    if collection_len == 0:
+        container.label(text="You haven't imported any sets yet.")
+        return
+
+    for i in range(0, collection_len):
         expanded = ui_draw_collection(collection_list[i], i, max_items_per_row, container, context, in_edit_mode)
         if expanded: container.separator(factor=1)
 
@@ -432,30 +449,38 @@ def ui_draw_collection_patterns(collection, idx, layout, in_edit_mode):
     row.prop(active_pattern, "allow_repaint", text="Allow Repaint")
 
     pattern_box = layout.box()
-    pattern_layout = pattern_box.grid_flow(row_major=True, align=True)
+
+    op = pattern_box.operator("neo.uvset_add_pattern_rect", text="", icon="ADD")
+    op.collectionIdx = idx
+
+    pattern_layout = pattern_box.column()
     pattern_idx = -1
+
+    pattern_len = len(active_pattern.items.items())
     for pattern_rect in active_pattern.items:
         pattern_idx += 1
 
         rect = pattern_rect.get_rect(collection)
 
         if rect is None:
-            continue
+            preview_image = None
+        else:
+            preview_image = get_image_by_name(rect.previewName)
 
-        preview_image = get_image_by_name(rect.previewName)
-        if preview_image is None:
-            continue
-
-        if bpy.app.version[0] >= 3:
+        if preview_image is not None and bpy.app.version[0] >= 3:
             preview_image.preview_ensure()
 
         row = pattern_layout.row()
+        row.alignment = "CENTER"
         split = row.split(factor=0.85)
 
         col = split.column()
-        col.template_icon(icon_value=preview_image.preview.icon_id, scale=nuv_preview_scale)
+
+        if preview_image is None: col.template_icon(icon_value=rect_missing_icon, scale=nuv_pattern_preview_scale)
+        else: col.template_icon(icon_value=preview_image.preview.icon_id, scale=nuv_pattern_preview_scale)
 
         col = split.column()
+        col.separator(factor=0.25)
         op = col.operator("neo.uvset_delete_pattern_rect", text="", icon="TRASH")
         op.collectionIdx = idx
         op.patternRectIdx = pattern_idx
@@ -464,8 +489,20 @@ def ui_draw_collection_patterns(collection, idx, layout, in_edit_mode):
         op.collectionIdx = idx
         op.patternRectIdx = pattern_idx
 
-    op = pattern_box.operator("neo.uvset_add_pattern_rect", text="", icon="ADD")
-    op.collectionIdx = idx
+        col.separator(factor=1)
+        up_col = col.column()
+        up_col.enabled = pattern_idx > 0
+        op = up_col.operator("neo.uvset_move_pattern_rect", text="", icon="TRIA_UP")
+        op.collectionIdx = idx
+        op.patternRectIdx = pattern_idx
+        op.up = True
+
+        down_col = col.column()
+        down_col.enabled = pattern_idx < pattern_len - 1
+        op = down_col.operator("neo.uvset_move_pattern_rect", text="", icon="TRIA_DOWN")
+        op.collectionIdx = idx
+        op.patternRectIdx = pattern_idx
+        op.up = False
 
 
 def ui_draw_collection_rect_list(collection, idx, max_items_per_row, layout, in_edit_mode):

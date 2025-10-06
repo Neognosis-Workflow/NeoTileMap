@@ -519,6 +519,10 @@ class UtilOpNeoPatternUnwrap(UtilOpMeshOperator):
             idx = random.randrange(0, pattern_len)
 
             pattern_rect = items[idx][1]
+
+            if pattern_rect.rect_idx < 0:
+                continue
+
             rect = pattern_rect.get_rect(collection)
 
             unwrap_auto(space_mode, in_edit_mode, context, mw, {face}, unwrap_mode, correct_aspect, snap_to_bounds,

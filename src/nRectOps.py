@@ -23,6 +23,7 @@ class NeoRectSelector(nImageOp.NeoImageOperator):
     bl_label = "Rect Selector"
 
     collectionIdx: bpy.props.IntProperty()
+    openHighlightIdx: bpy.props.IntProperty(default=-1)
 
     if is_blender_44_or_greater:
         def __init__(self, *args, **kwargs):
@@ -54,6 +55,12 @@ class NeoRectSelector(nImageOp.NeoImageOperator):
         self.zoom = 0.85  # NEW: Make sure the image is framed nicely
 
         bpy.context.scene.nuv_settings.last_uv_set = self.collectionIdx
+
+        try:
+            if self.openHighlightIdx > 0:
+                self.snap_mouse_to_open_highlight(context, image, self.openHighlightIdx)
+        except Exception as e:
+            print(e)
 
     def on_update(self, context, event):
         if self.dragging:
@@ -119,15 +126,41 @@ class NeoRectSelector(nImageOp.NeoImageOperator):
         bpy.context.window.cursor_modal_restore()
         bpy.types.SpaceView3D.draw_handler_remove(self.handle, 'WINDOW')
 
+    def snap_mouse_to_open_highlight(self, context, atlas, rect_idx):
+        self.img_data = nUtil.get_transformed_image_data(atlas, context.area.width, context.area.height,
+                                                         self.zoom, self.offset_x, self.offset_y)
+
+        rect = self.collection.items.items()[rect_idx][1]
+
+        center = self.get_center()
+        size = self.get_size()
+
+        top_left = center + mathutils.Vector(nData.rect_top_left(rect)) * size
+        top_right = center + mathutils.Vector(nData.rect_top_right(rect)) * size
+        bottom_right = center + mathutils.Vector(nData.rect_bottom_right(rect)) * size
+        bottom_left = center + mathutils.Vector(nData.rect_bottom_left(rect)) * size
+
+        mouse_center = (top_left + top_right + bottom_left + bottom_right) / 4
+
+        region_x = context.area.x + mouse_center.x
+        region_y = context.area.y + mouse_center.y
+        context.window.cursor_warp(int(region_x), int(region_y))
+
+    def get_center(self):
+        return mathutils.Vector((self.img_data[3], self.img_data[4])) + mathutils.Vector((self.offset_x, self.offset_y))
+
+    def get_size(self):
+        return mathutils.Vector((self.img_data[1], self.img_data[2])) * 0.5
+
     @staticmethod
     def draw_tool(self, atlas, items, context):
-        self.img_data = nUtil.draw_transformed_image(atlas, context.area.width, context.area.height,
-                                     self.zoom, self.offset_x, self.offset_y)
+        self.img_data = nUtil.get_transformed_image_data(atlas, context.area.width, context.area.height,
+                                                         self.zoom, self.offset_x, self.offset_y)
 
-        width = self.img_data[1]
-        height = self.img_data[2]
-        center = mathutils.Vector((self.img_data[3], self.img_data[4])) + mathutils.Vector((self.offset_x, self.offset_y))
-        size = mathutils.Vector((width, height)) * 0.5
+        nUtil.draw_transformed_image(atlas, self.img_data[5], self.img_data[6], self.img_data[7], self.img_data[8])
+
+        center = self.get_center()
+        size = self.get_size()
 
         lineColor = (0.0, 0.0, 1.0, 1.0)
         highlightColor = (0.0, 1.0, 0.0, 1.0)

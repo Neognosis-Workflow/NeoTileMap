@@ -182,7 +182,8 @@ class NeoPaint(bpy.types.Operator):
             self.finished()
 
             if right_mouse:
-                bpy.ops.view3d.nuv_set_paint_rect_selector("INVOKE_DEFAULT", collectionIdx=self.collectionIdx)
+                bpy.ops.view3d.nuv_set_paint_rect_selector("INVOKE_DEFAULT", collectionIdx=self.collectionIdx,
+                                                           openHighlightIdx=self.rectIdx)
             return {"FINISHED"}
 
         # update face

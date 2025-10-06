@@ -67,9 +67,9 @@ def draw_image_blender_4(image, verts, tex_coord, indices):
     gpu.state.blend_set("NONE")
 
 
-def draw_transformed_image(image, area_width, area_height, zoom, offset_x, offset_y):
+def get_transformed_image_data(image, area_width, area_height, zoom, offset_x, offset_y):
     """
-    Draws a transformed image and returns additional information about the transformation of the image.
+    Calculates data that can be used for draw_transformed_image and anything that needs to share its information.
     :param image: The image to draw.
     :param area_width: The width of the area that the image will be drawn in.
     :param area_height: The height of the area that the image will be drawn in.
@@ -112,6 +112,13 @@ def draw_transformed_image(image, area_width, area_height, zoom, offset_x, offse
     top_left = ((center_x - quad_width / 2) + offset_x, (center_y + quad_height / 2) + offset_y)
     top_right = ((center_x + quad_width / 2) + offset_x, (center_y + quad_height / 2) + offset_y)
 
+    return [img_aspect, quad_width, quad_height, center_x, center_y, bottom_left, bottom_right, top_left, top_right]
+
+
+def draw_transformed_image(image, bottom_left, bottom_right, top_left, top_right):
+    """
+    Draws a transformed image and returns additional information about the transformation of the image.
+    """
     # draw mesh
     verts = (
         bottom_left,
@@ -120,7 +127,7 @@ def draw_transformed_image(image, area_width, area_height, zoom, offset_x, offse
         top_right
     )
 
-    texCoord = (
+    tex_coord = (
         (0, 0), (1, 0), (0, 1), (1, 1)
     )
 
@@ -128,8 +135,7 @@ def draw_transformed_image(image, area_width, area_height, zoom, offset_x, offse
         (0, 1, 2), (2, 1, 3)
     )
 
-    draw_image(image, verts, texCoord, indices)
-    return [img_aspect, quad_width, quad_height, center_x, center_y, bottom_left, bottom_right, top_left, top_right]
+    draw_image(image, verts, tex_coord, indices)
 
 
 def line_draw(pos_a, pos_b, color):

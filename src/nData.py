@@ -182,6 +182,9 @@ class NeoTileRectPattern(bpy.types.PropertyGroup):
 
         copy_rect(rect, pattern_rect)
 
+    def move_rect(self, item_idx, amount):
+        self.items.move(item_idx, item_idx - amount)
+
     def delete_rect(self, pattern_rect_idx):
         self.items.remove(pattern_rect_idx)
 
@@ -245,6 +248,7 @@ class NeoTileAddPattern(bpy.types.Operator):
     bl_idname = "neo.uvset_add_pattern"
     bl_label = "Add Pattern"
     bl_description = ""
+    bl_options = {"REGISTER", "UNDO"}
 
     collectionIdx: bpy.props.IntProperty()
 
@@ -260,6 +264,7 @@ class NeoTileDeletePattern(bpy.types.Operator):
     bl_idname = "neo.uvset_delete_pattern"
     bl_label = "Delete Pattern"
     bl_description = ""
+    bl_options = {"REGISTER", "UNDO"}
 
     collectionIdx: bpy.props.IntProperty()
 
@@ -274,10 +279,12 @@ class NeoTileAddPatternRect(bpy.types.Operator):
     bl_idname = "neo.uvset_add_pattern_rect"
     bl_label = "Add Pattern Rect"
     bl_description = ""
+    bl_options = {"REGISTER", "UNDO"}
 
     collectionIdx: bpy.props.IntProperty()
 
     def invoke(self, context, event):
+        bpy.ops.ed.undo_push(message="Add Pattern Rect")
         collection =  get_collection_by_idx(self.collectionIdx)
         pattern = collection.get_active_pattern()
         pattern.add_rect()
@@ -295,12 +302,14 @@ class NeoTileSetPatternRect(bpy.types.Operator):
     bl_idname = "neo.uvset_set_pattern_rect"
     bl_label = "Set Pattern Rect"
     bl_description = ""
+    bl_options = {"REGISTER", "UNDO"}
 
     collectionIdx: bpy.props.IntProperty()
     patternRectIdx: bpy.props.IntProperty()
     rectIdx: bpy.props.IntProperty()
 
     def invoke(self, context, event):
+        bpy.ops.ed.undo_push(message="Set Pattern Rect")
         collection = get_collection_by_idx(self.collectionIdx)
         pattern = collection.get_active_pattern()
 
@@ -312,11 +321,13 @@ class NeoTileDeletePatternRect(bpy.types.Operator):
     bl_idname = "neo.uvset_delete_pattern_rect"
     bl_label = "Delete Pattern Rect"
     bl_description = ""
+    bl_options = {"REGISTER", "UNDO"}
 
     collectionIdx: bpy.props.IntProperty()
     patternRectIdx: bpy.props.IntProperty()
 
     def invoke(self, context, event):
+        bpy.ops.ed.undo_push(message="Delete Pattern Rect")
         collection = get_collection_by_idx(self.collectionIdx)
         pattern = collection.get_active_pattern()
 
@@ -325,10 +336,31 @@ class NeoTileDeletePatternRect(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class NeoTileMovePatternRect(bpy.types.Operator):
+    bl_idname = "neo.uvset_move_pattern_rect"
+    bl_label = "Move Pattern Rect"
+    bl_description = ""
+    bl_options = {"REGISTER", "UNDO"}
+
+    collectionIdx: bpy.props.IntProperty()
+    patternRectIdx: bpy.props.IntProperty()
+    up: bpy.props.BoolProperty()
+
+    def invoke(self, context, event):
+        bpy.ops.ed.undo_push(message="Move Pattern Rect")
+        collection = get_collection_by_idx(self.collectionIdx)
+        pattern = collection.get_active_pattern()
+
+        pattern.move_rect(self.patternRectIdx, 1 if self.up else -1)
+
+        return {'FINISHED'}
+
+
 class NeoTileDeleteCollection(bpy.types.Operator):
     bl_idname = "neo.uvset_delete"
     bl_label = "Delete"
     bl_description = ""
+    bl_options = {"REGISTER", "UNDO"}
 
     collectionIdx: bpy.props.IntProperty()
 
@@ -628,6 +660,7 @@ classes = (
     NeoTileDeleteCollection,
     NeoTileAddPattern,
     NeoTileDeletePattern,
+    NeoTileMovePatternRect,
     NeoTileAddPatternRect,
     NeoTileSetPatternRect,
     NeoTileDeletePatternRect,
