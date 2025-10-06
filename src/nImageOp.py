@@ -9,6 +9,7 @@ is_blender_44_or_greater = bpy.app.version[0] > 3 and bpy.app.version[1] > 3
 
 # region Operators
 
+
 # noinspection PyAttributeOutsideInit
 class NeoImageOperator(bpy.types.Operator):
     """Base class for all neognosis image editor tools."""

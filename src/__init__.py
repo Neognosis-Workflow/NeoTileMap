@@ -10,36 +10,14 @@ from . import nImageOp
 from . import nRectOps
 from . import nInteractiveUv
 from . import nUtil
+from . import nPaint
+from . import nPatternPaint
 import inspect
 
 # endregion
 
-# region Data
-
-class VIEW3D_PT_NeoTmPanel(bpy.types.Panel):
-    bl_idname = 'VIEW3D_PT_NeoTmPanel'
-    bl_label = 'Neo Tile Map'
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'UI'
-    bl_category = 'Neognosis'
-
-    @classmethod
-    def poll(self, context):
-        if context.area.type == "VIEW_3D":
-            return True
-
-    def draw(self, context):
-        layout = self.layout
-        scene = context.scene
-        obj = context.object
-
-        row = layout.row(align=True)
-        nInterface.ui_draw(layout, context)
-        return
-
-# endregion
-
 # region Blender
+
 
 bl_info = {
     "name" : "Neognosis Tile Mapper",
@@ -52,10 +30,6 @@ bl_info = {
     "category" : "Generic"
 }
 
-classes = (
-    VIEW3D_PT_NeoTmPanel,
-)
-
 modules = (
     nData,
     nInterface,
@@ -64,14 +38,13 @@ modules = (
     nImageOp,
     nRectOps,
     nInteractiveUv,
+    nPaint,
+    nPatternPaint,
     nUtil,
 )
 
 
 def register():
-    for c in classes:
-        bpy.utils.register_class(c)
-        
     for m in modules:
         reload(m)
         if hasattr(m, "register"):
@@ -79,9 +52,6 @@ def register():
 
 
 def unregister():
-    for c in classes:
-        bpy.utils.unregister_class(c)
-
     for m in modules:
         if hasattr(m, "unregister"):
             m.unregister()

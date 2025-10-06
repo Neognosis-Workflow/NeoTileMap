@@ -4,9 +4,84 @@ import bpy
 import os
 import tempfile
 import struct
+import math
 from bpy_extras.io_utils import ImportHelper
 from pathlib import Path
 from bpy.props import *
+
+# endregion
+
+# region Rect Methods
+
+
+def rect_contains(rect, x, y):
+    return (rect.topLeftX + 1) / 2 < x < (rect.topRightX + 1) / 2 and (rect.bottomLeftY + 1) / 2 < y < (rect.topLeftY + 1) / 2
+
+
+def rect_top_left(rect):
+    return [rect.topLeftX, rect.topLeftY]
+
+
+def rect_top_right(rect):
+    return [rect.topRightX, rect.topRightY]
+
+
+def rect_bottom_left(rect):
+    return [rect.bottomLeftX, rect.bottomLeftY]
+
+
+def rect_bottom_right(rect):
+    return [rect.bottomRightX, rect.bottomRightY]
+
+
+def copy_rect(a, b):
+    """Copies the vertex positions of Aect A into Rect B."""
+    b.topLeftX = a.topLeftX
+    b.topLeftY = a.topLeftY
+
+    b.topRightX = a.topRightX
+    b.topRightY = a.topRightY
+
+    b.bottomLeftX = a.bottomLeftX
+    b.bottomLeftY = a.bottomLeftY
+
+    b.bottomRightX = a.bottomRightX
+    b.bottomRightY = a.bottomRightY
+
+
+def rect_to_tuples(rect):
+    """Returns a rect as an array of tuples in order of Top Left, Top Right, Bottom Left and Bottom Right"""
+    return [(rect.topLeftX, rect.topLeftY),
+            (rect.topRightX, rect.topRightY),
+            (rect.bottomLeftX, rect.bottomLeftY),
+            (rect.bottomRightX, rect.bottomRightY)]
+
+
+def are_rects_same(a, b):
+    """Returns true if Rect A and Rect B have the same vertex positions"""
+    return (
+            math.isclose(a.topLeftX, b.topLeftX)
+            and math.isclose(a.topLeftY, b.topLeftY)
+            and math.isclose(a.topRightX, b.topRightX)
+            and math.isclose(a.topRightY, b.topRightY)
+            and math.isclose(a.bottomLeftX, b.bottomLeftX)
+            and math.isclose(a.bottomLeftY, b.bottomLeftY)
+            and math.isclose(a.bottomRightX, b.bottomRightX)
+            and math.isclose(a.bottomRightY, b.bottomRightY)
+    )
+
+# endregion
+
+# region Collection Methods
+
+
+def get_collections():
+    return bpy.context.scene.nuv_uvSets
+
+
+def get_collection_by_idx(idx):
+    return bpy.context.scene.nuv_uvSets[idx]
+
 
 # endregion
 
@@ -28,18 +103,6 @@ class NeoRect:
         self.bottomRightX = bottom_right[0]
         self.bottomRightY = bottom_right[1]
 
-    def top_left(self):
-        return [self.topLeftX, self.topLeftY]
-
-    def top_right(self):
-        return [self.topRightX, self.topRightY]
-
-    def bottom_right(self):
-        return [self.bottomRightX, self.bottomRightY]
-
-    def bottom_left(self):
-        return [self.bottomLeftX, self.bottomLeftY]
-
 
 class NeoTileRect(bpy.types.PropertyGroup):
     """Contains data for a UV rect and preview image as a Blender type."""
@@ -58,30 +121,69 @@ class NeoTileRect(bpy.types.PropertyGroup):
     bottomRightX: FloatProperty(name="Bottom Right X")
     bottomRightY: FloatProperty(name="Bottom Right Y")
 
-    def apply_tuples(self, top_left, top_right, bottom_left, bottom_right):
-        self.topLeftX = top_left[0]
-        self.topLeftY = top_left[1]
+    def apply_tuples(self, top_left_vert, top_right_vert, bottom_left_vert, bottom_right_vert):
+        self.topLeftX = top_left_vert[0]
+        self.topLeftY = top_left_vert[1]
 
-        self.topRightX = top_right[0]
-        self.topRightY = top_right[1]
+        self.topRightX = top_right_vert[0]
+        self.topRightY = top_right_vert[1]
 
-        self.bottomLeftX = bottom_left[0]
-        self.bottomLeftY = bottom_left[1]
+        self.bottomLeftX = bottom_left_vert[0]
+        self.bottomLeftY = bottom_left_vert[1]
 
-        self.bottomRightX = bottom_right[0]
-        self.bottomRightY = bottom_right[1]
+        self.bottomRightX = bottom_right_vert[0]
+        self.bottomRightY = bottom_right_vert[1]
 
-    def top_left(self):
-        return [self.topLeftX, self.topLeftY]
 
-    def top_right(self):
-        return [self.topRightX, self.topRightY]
+class NeoTilePatternEntry(NeoTileRect):
+    rect_idx: IntProperty(default=-1)
 
-    def bottom_right(self):
-        return [self.bottomRightX, self.bottomRightY]
+    def try_discover_rect_idx(self, collection):
+        items = collection.items.items()
+        items_len = len(items)
 
-    def bottom_left(self):
-        return [self.bottomLeftX, self.bottomLeftY]
+        self.rect_idx = -1
+        for i in range(items_len):
+            rect = items[i][1]
+
+            if are_rects_same(self, rect):
+                self.rect_idx = i
+                return
+
+    def get_rect(self, collection):
+        items = collection.items.items()
+
+        if -1 < self.rect_idx < len(items): return items[self.rect_idx][1]
+        return None
+
+
+class NeoTileRectPattern(bpy.types.PropertyGroup):
+    name: StringProperty(default="Pattern")
+    items: CollectionProperty(type=NeoTilePatternEntry)
+    use_random: BoolProperty(default=False, description="Whether the pattern will be painted randomly instead of sequentially.")
+    reset_stroke_on_click: BoolProperty(default=True, description="Whether the pattern index will be reset when starting a new stroke. When shift is held, this option will be inverted.")
+    allow_repaint: BoolProperty(default=True, description="Whether faces that have already been painted can be painted on again.")
+
+    def update_pattern_indicies(self, collection):
+        for item in self.items:
+            item.try_discover_rect_idx(collection)
+
+    def add_rect(self):
+        self.items.add()
+
+    def set_rect(self, collection_idx, item_idx, rect_idx):
+        items = self.items.items()
+
+        collection = get_collection_by_idx(collection_idx)
+
+        rect = collection.get_rect(rect_idx)
+        pattern_rect = items[item_idx][1]
+        pattern_rect.rect_idx = rect_idx
+
+        copy_rect(rect, pattern_rect)
+
+    def delete_rect(self, pattern_rect_idx):
+        self.items.remove(pattern_rect_idx)
 
 
 class NeoTileRectCollection(bpy.types.PropertyGroup):
@@ -90,9 +192,46 @@ class NeoTileRectCollection(bpy.types.PropertyGroup):
     name: StringProperty(name="Name")
     relative_path: StringProperty(name="Path")
     items: CollectionProperty(type=NeoTileRect)
+    patterns: CollectionProperty(type=NeoTileRectPattern)
+    active_pattern: IntProperty(default=-1)
     expanded: BoolProperty(name="Expanded")
     items_expanded: BoolProperty(name="Items Expanded")
+    patterns_expanded: BoolProperty(name="Patterns Expanded")
     page: IntProperty(name="Page", min=0, max=10)
+
+    def add_pattern(self):
+        self.patterns.add()
+        self.active_pattern = len(self.patterns.items()) - 1
+
+    def remove_pattern(self):
+        items = self.patterns.items()
+        items_len = len(items)
+
+        if -1 < self.active_pattern < items_len:
+            self.patterns.remove(self.active_pattern)
+
+        items_len -= 1
+
+        if self.active_pattern > items_len - 1:
+            self.active_pattern = items_len - 1
+
+    def get_active_pattern(self):
+        if self.active_pattern < 0:
+            return None
+
+        items = self.patterns.items()
+        if self.active_pattern > len(items) - 1:
+            return None
+
+        return items[self.active_pattern][1]
+
+    def update_pattern_indicies(self):
+        for p in self.patterns:
+            p.update_pattern_indicies(self)
+
+    def get_rect(self, rect_idx):
+        items = self.items.items()
+        return items[rect_idx][1]
 
     def clear(self):
         self.items.clear()
@@ -100,6 +239,90 @@ class NeoTileRectCollection(bpy.types.PropertyGroup):
 # endregion
 
 # region Operators
+
+
+class NeoTileAddPattern(bpy.types.Operator):
+    bl_idname = "neo.uvset_add_pattern"
+    bl_label = "Add Pattern"
+    bl_description = ""
+
+    collectionIdx: bpy.props.IntProperty()
+
+    def invoke(self, context, event):
+
+        bpy.ops.ed.undo_push(message="Add Pattern")
+        get_collection_by_idx(self.collectionIdx).add_pattern()
+
+        return {'FINISHED'}
+
+
+class NeoTileDeletePattern(bpy.types.Operator):
+    bl_idname = "neo.uvset_delete_pattern"
+    bl_label = "Delete Pattern"
+    bl_description = ""
+
+    collectionIdx: bpy.props.IntProperty()
+
+    def invoke(self, context, event):
+        bpy.ops.ed.undo_push(message="Delete Pattern")
+        get_collection_by_idx(self.collectionIdx).remove_pattern()
+
+        return {'FINISHED'}
+
+
+class NeoTileAddPatternRect(bpy.types.Operator):
+    bl_idname = "neo.uvset_add_pattern_rect"
+    bl_label = "Add Pattern Rect"
+    bl_description = ""
+
+    collectionIdx: bpy.props.IntProperty()
+
+    def invoke(self, context, event):
+        collection =  get_collection_by_idx(self.collectionIdx)
+        pattern = collection.get_active_pattern()
+        pattern.add_rect()
+
+        items = pattern.items.items()
+        bpy.ops.view3d.nuv_set_pattern_rect_selector(
+            "INVOKE_DEFAULT",
+            collectionIdx=self.collectionIdx,
+            patternRectIdx=len(items) - 1)
+
+        return {'FINISHED'}
+
+
+class NeoTileSetPatternRect(bpy.types.Operator):
+    bl_idname = "neo.uvset_set_pattern_rect"
+    bl_label = "Set Pattern Rect"
+    bl_description = ""
+
+    collectionIdx: bpy.props.IntProperty()
+    patternRectIdx: bpy.props.IntProperty()
+    rectIdx: bpy.props.IntProperty()
+
+    def invoke(self, context, event):
+        collection = get_collection_by_idx(self.collectionIdx)
+        pattern = collection.get_active_pattern()
+
+        pattern.set_rect(self.collectionIdx, self.patternRectIdx, self.rectIdx)
+        return {'FINISHED'}
+
+
+class NeoTileDeletePatternRect(bpy.types.Operator):
+    bl_idname = "neo.uvset_delete_pattern_rect"
+    bl_label = "Delete Pattern Rect"
+    bl_description = ""
+
+    collectionIdx: bpy.props.IntProperty()
+    patternRectIdx: bpy.props.IntProperty()
+
+    def invoke(self, context, event):
+        collection = get_collection_by_idx(self.collectionIdx)
+        pattern = collection.get_active_pattern()
+
+        pattern.delete_rect(self.patternRectIdx)
+
+        return {'FINISHED'}
 
 
 class NeoTileDeleteCollection(bpy.types.Operator):
@@ -112,8 +335,7 @@ class NeoTileDeleteCollection(bpy.types.Operator):
     def invoke(self, context, event):
 
         bpy.ops.ed.undo_push(message="Delete NeoTileMap")
-        col_list = bpy.context.scene.nuv_uvSets
-        col_list.remove(self.collectionIdx)
+        get_collections().remove(self.collectionIdx)
 
         return {'FINISHED'}
 
@@ -369,6 +591,8 @@ class ImportRectData(bpy.types.Operator, ImportHelper):
 
                         collection = ImportRectData.add_collection(img_name, relpath)
                         ImportRectData.add_rect_to_collection(verts, preview_name, collection)
+
+                        collection.update_pattern_indicies()
         return {'FINISHED'}
 
     def execute(self, context):
@@ -398,8 +622,15 @@ class ProjectFileContent:
 classes = (
     ImportRectData,
     NeoTileRect,
+    NeoTilePatternEntry,
+    NeoTileRectPattern,
     NeoTileRectCollection,
-    NeoTileDeleteCollection
+    NeoTileDeleteCollection,
+    NeoTileAddPattern,
+    NeoTileDeletePattern,
+    NeoTileAddPatternRect,
+    NeoTileSetPatternRect,
+    NeoTileDeletePatternRect,
 )
 
 

@@ -78,7 +78,10 @@ class NeoRectSelector(nImageOp.NeoImageOperator):
                     if self.highlighted_Item.__eq__(item):
                         break
 
-                self.on_rect_selected(self.collectionIdx, idx)
+                try:
+                    self.on_rect_selected(self.collectionIdx, idx)
+                except Exception as e:
+                    print(e)
 
         if btn_idx == 2:
             self.dragging = True
@@ -158,10 +161,10 @@ class NeoRectSelector(nImageOp.NeoImageOperator):
 
             # draw items
             for item in self.collection.items:
-                top_left = center + mathutils.Vector(item.top_left()) * size
-                top_right = center + mathutils.Vector(item.top_right()) * size
-                bottom_right = center + mathutils.Vector(item.bottom_right()) * size
-                bottom_left = center + mathutils.Vector(item.bottom_left()) * size
+                top_left = center + mathutils.Vector(nData.rect_top_left(item)) * size
+                top_right = center + mathutils.Vector(nData.rect_top_right(item)) * size
+                bottom_right = center + mathutils.Vector(nData.rect_bottom_right(item)) * size
+                bottom_left = center + mathutils.Vector(nData.rect_bottom_left(item)) * size
 
                 mouse_in_bounds = nUtil.mouse_in_bounds(self.mouse_region_x, self.mouse_region_y, top_left, top_right, bottom_right, bottom_left)
                 if mouse_in_bounds and not has_highlight and not self.dragging:
@@ -191,9 +194,36 @@ class NeoRectSelector(nImageOp.NeoImageOperator):
 class NeoSetUvRectSelector(NeoRectSelector):
     bl_idname = "view3d.nuv_set_uv_rect_selector"
     bl_label = "Set UV Rect Selector"
+    bl_description = "Select a rect and unwrap it onto the selected faces."
 
     def on_rect_selected(self, collection_idx, rect_idx):
         bpy.ops.neo.uv_setuvrect('INVOKE_DEFAULT', collectionIdx=collection_idx, rectIdx=rect_idx)
+
+
+class NeoSetPaintRectSelector(NeoRectSelector):
+    bl_idname = "view3d.nuv_set_paint_rect_selector"
+    bl_label = "Paint Rect Selector."
+    bl_description = "Paint UVs. Right click to select a different rect.\nHold CTRL while painting to flip horizontally and CTRL + Shift to flip vertically.\nHold ALT and use the scrollwheel to rotate UVs.\nHold ALT and left click a face to pick its rect and make it the active one.\nHold ALT, Shift and CTRL to access the properties panel settings."
+
+    def on_rect_selected(self, collection_idx, rect_idx):
+        bpy.ops.neo.uv_paintunwrap(
+            "INVOKE_DEFAULT",
+            collectionIdx=collection_idx,
+            rectIdx=rect_idx)
+
+
+class NeoSetPatternRectSelector(NeoRectSelector):
+    bl_idname = "view3d.nuv_set_pattern_rect_selector"
+    bl_label = "Set Pattern Rect Selector"
+
+    patternRectIdx: bpy.props.IntProperty()
+
+    def on_rect_selected(self, collection_idx, rect_idx):
+        bpy.ops.neo.uvset_set_pattern_rect(
+            "INVOKE_DEFAULT",
+            collectionIdx=collection_idx,
+            rectIdx=rect_idx,
+            patternRectIdx=self.patternRectIdx)
 
 # endregion
 
@@ -202,6 +232,8 @@ class NeoSetUvRectSelector(NeoRectSelector):
 
 classes = (
     NeoSetUvRectSelector,
+    NeoSetPaintRectSelector,
+    NeoSetPatternRectSelector,
 )
 
 
@@ -214,4 +246,4 @@ def unregister():
     for c in classes:
         bpy.utils.unregister_class(c)
 
-#endregion
+# endregion

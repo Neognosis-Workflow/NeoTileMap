@@ -2,9 +2,14 @@
 
 import bgl
 import bpy
+
 import gpu
 import gpu_extras.presets
+from bpy_extras import view3d_utils
 from gpu_extras.batch import batch_for_shader
+
+from mathutils import Vector
+from mathutils.bvhtree import BVHTree
 
 is_blender_4_or_greater = bpy.app.version[0] > 3
 
@@ -192,5 +197,30 @@ def abs_uv(uv):
     uv[0] = (uv[0] + 1.0) / 2.0
     uv[1] = (uv[1] + 1.0) / 2.0
     return uv
+
+
+def raycast_mesh_from_screen(obj, bvh_tree, event):
+    mouse_pos = [event.mouse_region_x, event.mouse_region_y]
+    region = bpy.context.region
+    region_3d = bpy.context.region_data
+
+    view_vec = view3d_utils.region_2d_to_vector_3d(region, region_3d, mouse_pos)
+    ray_origin = view3d_utils.region_2d_to_origin_3d(region, region_3d, mouse_pos)
+    ray_target = ray_origin + view_vec
+
+    matrix = obj.matrix_world.inverted()
+
+    ray_origin_obj = matrix @ ray_origin
+    ray_target_obj = matrix @ ray_target
+    ray_dir_obj = ray_target_obj - ray_origin_obj
+
+    result = bvh_tree.ray_cast(ray_origin_obj, ray_dir_obj)
+
+    if result[0] is None: return None
+    return [result, ray_origin]
+
+
+def should_modal_escape(event):
+    return (event.type == "ESC" or event.type == "RET") and event.value == "PRESS"
 
 # endregion

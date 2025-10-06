@@ -4,6 +4,7 @@ import bpy
 import os
 import bmesh
 import mathutils
+import random
 from . import nMath
 from . import nInterface
 from . import nUtil
@@ -14,14 +15,130 @@ from . import nData
 # region Global Methods
 
 
-def unwrap_local(in_edit_mode, context, mw, bm, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer):
+def get_best_rect_for_face(face, uv_layer, collection):
+
+    # calculate center
+    uv_center = mathutils.Vector((0.0, 0.0))
+
+    itr = 0
+    for vert, loop in zip(face.verts, face.loops):
+        uv = loop[uv_layer].uv
+        uv_center += uv
+        itr += 1
+
+    uv_center /= itr
+
+    # check rect bounds
+    for rect in collection.items:
+        if nData.rect_contains(rect, uv_center.x, uv_center.y):
+            return rect
+
+    return None
+
+
+def rotate(only_selected, faces, clockwise, uv_layer):
+    rotate_mode = bpy.context.scene.nuv_settings.mode_rotate
+
+    for face in faces:
+        if not face.select and only_selected: continue
+
+        if rotate_mode == "1":
+
+            # build uv list
+            uv_list = []
+            for vert, loop in zip(face.verts, face.loops):
+                uv = loop[uv_layer].uv
+                uv_list.append(mathutils.Vector((uv.x, uv.y)))
+
+            # shift uvs around
+            vert_len = len(face.verts)
+            idx = 0
+
+            for vert, loop in zip(face.verts, face.loops):
+                if clockwise:
+                    new_idx = idx + 1
+                    if new_idx > vert_len - 1: new_idx = 0
+                else:
+                    new_idx = idx - 1
+                    if new_idx < 0: new_idx = vert_len - 1
+
+                loop[uv_layer].uv = uv_list[new_idx]
+                idx += 1
+        else:
+
+            # calculate uv center
+            uv_center = mathutils.Vector((0.0, 0.0))
+
+            vert_len = len(face.verts)
+            if vert_len == 3:
+                uv_center = nMath.center_for_triangle(face.loops[0][uv_layer].uv, face.loops[1][uv_layer].uv,
+                                                      face.loops[2][uv_layer].uv)
+            else:
+                itr = 0
+                for vert, loop in zip(face.verts, face.loops):
+                    uv = loop[uv_layer].uv
+                    uv_center += uv
+                    itr += 1
+
+                uv_center /= itr
+
+            for vert, loop in zip(face.verts, face.loops):
+                uv = loop[uv_layer].uv
+
+                uv = nMath.rotate_vector(uv, uv_center, 90 if clockwise else -90)
+                loop[uv_layer].uv = mathutils.Vector(uv)
+
+def flip(only_selected, faces, horizontal, uv_layer):
+    for face in faces:
+        if not face.select and only_selected: continue
+
+        # calculate uv center
+        uv_center = mathutils.Vector((0.0, 0.0))
+
+        vert_len = len(face.verts)
+        if vert_len == 3:
+            uv_center = nMath.center_for_triangle(face.loops[0][uv_layer].uv, face.loops[1][uv_layer].uv,
+                                                  face.loops[2][uv_layer].uv)
+        else:
+            itr = 0
+            for vert, loop in zip(face.verts, face.loops):
+                uv = loop[uv_layer].uv
+                uv_center += uv
+                itr += 1
+
+            uv_center /= itr
+
+        # perform the flip
+        for vert, loop in zip(face.verts, face.loops):
+            uv = loop[uv_layer].uv
+
+            if horizontal:
+                offset_x = uv.x - uv_center.x
+                uv.x = uv_center.x + -offset_x
+            else:
+                offset_y = uv.y - uv_center.y
+                uv.y = uv_center.y + -offset_y
+
+            loop[uv_layer].uv = mathutils.Vector(uv)
+
+
+def unwrap_auto(space_mode, only_selected, context, mw, faces, unwrap_mode, correct_aspect, snap_to_bounds, rect,
+                uv_layer):
+    """Unwraps selected faces, automatically choosen between local of world unwrap based on the value of space_mode"""
+    if space_mode == "1":
+        unwrap_local(only_selected, context, mw, faces, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer)
+    else:
+        unwrap_global(only_selected, context, mw, faces, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer)
+
+
+def unwrap_local(only_selected, context, mw, faces, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer):
     """
     Unwraps selected faces local to themselves.
     """
 
     # enumerate selected faces
-    for face in bm.faces:
-        if not face.select and in_edit_mode: continue
+    for face in faces:
+        if not face.select and only_selected: continue
 
         # get face data
         center = mw @ mathutils.Vector(face.calc_center_median())
@@ -103,10 +220,10 @@ def unwrap_local(in_edit_mode, context, mw, bm, unwrap_mode, correct_aspect, sna
                 y = ((verts_local_face[itr].y / max_dim_y) + 1.0) / 2.0
 
                 # scale down to rect
-                top_left = rect.top_left()
-                top_right = rect.top_right()
-                bottom_left = rect.bottom_left()
-                bottom_right = rect.bottom_right()
+                top_left = nData.rect_top_left(rect)
+                top_right = nData.rect_top_right(rect)
+                bottom_left = nData.rect_bottom_left(rect)
+                bottom_right = nData.rect_bottom_right(rect)
 
                 x = nMath.lerp((top_left[0] + 1.0) / 2.0, (top_right[0] + 1.0) / 2.0, x, True)
                 y = nMath.lerp((bottom_left[1] + 1.0) / 2.0, (top_left[1] + 1.0) / 2.0, y, True)
@@ -122,7 +239,7 @@ def unwrap_local(in_edit_mode, context, mw, bm, unwrap_mode, correct_aspect, sna
             itr += 1
 
 
-def unwrap_global(in_edit_mode, context, mw, bm, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer):
+def unwrap_global(only_selected, context, mw, faces, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer):
     """
     Unwraps the selected faces global to the sum of all faces
     """
@@ -136,8 +253,8 @@ def unwrap_global(in_edit_mode, context, mw, bm, unwrap_mode, correct_aspect, sn
     global_dir = mathutils.Vector((0.0, 0.0, 0.0))
 
     face_itr_count = 0
-    for face in bm.faces:
-        if not face.select and in_edit_mode: continue
+    for face in faces:
+        if not face.select and only_selected: continue
 
         selected_faces.append(face)
         face_itr_count += 1
@@ -231,10 +348,10 @@ def unwrap_global(in_edit_mode, context, mw, bm, unwrap_mode, correct_aspect, sn
             y = ((verts_local_face[itr].y / max_dim_y) + 1.0) / 2.0
 
             # scale down to rect
-            top_left = rect.top_left()
-            top_right = rect.top_right()
-            bottom_left = rect.bottom_left()
-            bottom_right = rect.bottom_right()
+            top_left = nData.rect_top_left(rect)
+            top_right = nData.rect_top_right(rect)
+            bottom_left = nData.rect_bottom_left(rect)
+            bottom_right = nData.rect_bottom_right(rect)
 
             x = nMath.lerp((top_left[0] + 1.0) / 2.0, (top_right[0] + 1.0) / 2.0, x, True)
             y = nMath.lerp((bottom_left[1] + 1.0) / 2.0, (top_left[1] + 1.0) / 2.0, y, True)
@@ -302,7 +419,7 @@ class UtilOpNeoSetUvRect(UtilOpMeshOperator):
     """Unwraps UVs based on a provided UV rectangle."""
     bl_idname = "neo.uv_setuvrect"
     bl_label = "Set Uv Rect"
-    bl_description = ""
+    bl_description = "Unwraps the selected faces to the selected rect."
 
     collectionIdx: bpy.props.IntProperty(name="Collection Index")
     rectIdx: bpy.props.IntProperty(name="Rect Index")
@@ -325,17 +442,15 @@ class UtilOpNeoSetUvRect(UtilOpMeshOperator):
         layer = bm.loops.layers.uv
         uv_layer = layer.verify()
 
-        if space_mode == "1":
-            unwrap_local(in_edit_mode, context, mw, bm, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer)
-        else:
-            unwrap_global(in_edit_mode, context, mw, bm, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer)
+        unwrap_auto(space_mode, in_edit_mode, context, mw, bm.faces, unwrap_mode, correct_aspect, snap_to_bounds, rect,
+                    uv_layer)
 
 
 class UtilOpNeoSetUvRectNormal(UtilOpMeshOperator):
     """Unwraps UVs to a 0-1 range."""
     bl_idname = "neo.uv_setuvrectnormal"
     bl_label = "Set Uv Rect (Normalized)"
-    bl_description = ""
+    bl_description = "Unwraps the selected faces to a normalzed 0-1 uv range."
 
     def do_mesh_edit(self, context, event, bm, in_edit_mode):
 
@@ -356,81 +471,80 @@ class UtilOpNeoSetUvRectNormal(UtilOpMeshOperator):
         layer = bm.loops.layers.uv
         uv_layer = layer.verify()
 
-        if space_mode == "1":
-            unwrap_local(in_edit_mode, context, mw, bm, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer)
-        else:
-            unwrap_global(in_edit_mode, context, mw, bm, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer)
+        unwrap_auto(space_mode, in_edit_mode, context, mw, bm.faces, unwrap_mode, correct_aspect, snap_to_bounds, rect,
+                    uv_layer)
 
 
-class UtilOpNeoRotUv(UtilOpMeshOperator):
-    bl_idname = "neo.uv_rot"
-    bl_label = "Rotate UV"
-    bl_description = ""
+class UtilOpNeoPaintUnwrap(bpy.types.Operator):
+    bl_idname = "neo.uv_paintunwrap"
+    bl_label = "Paint Unwrap"
+    bl_description = "Paint the selected rect onto faces"
 
-    clockwise: bpy.props.BoolProperty()
+    collectionIdx: bpy.props.IntProperty()
+    rectIdx: bpy.props.IntProperty()
+
+    def invoke(self, context, event):
+        bpy.ops.view3d.nuv_paint("INVOKE_DEFAULT", collectionIdx=self.collectionIdx, rectIdx=self.rectIdx)
+        return {"FINISHED"}
+
+
+class UtilOpNeoPatternUnwrap(UtilOpMeshOperator):
+    bl_idname = "neo.uv_patternunwrap"
+    bl_label = "Pattern Unwrap"
+    bl_description = "Applies the pattern randomly to all selected faces."
+
+    collectionIdx: bpy.props.IntProperty()
 
     def do_mesh_edit(self, context, event, bm, in_edit_mode):
+        # get variables
+        space_mode = bpy.context.scene.nuv_settings.mode_space
+        unwrap_mode = bpy.context.scene.nuv_settings.mode_unwrap
+        correct_aspect = bpy.context.scene.nuv_settings.correct_aspect_ratio
+        snap_to_bounds = bpy.context.scene.nuv_settings.snap_to_bounds
+        collection = bpy.context.scene.nuv_uvSets[self.collectionIdx]
+        pattern = collection.get_active_pattern()
 
-        rotate_mode = bpy.context.scene.nuv_settings.mode_rotate
+        items = pattern.items.items()
+        pattern_len = len(items)
+
+        # parent object data
+        obj = bpy.context.object
+        mw = obj.matrix_world
 
         # get active uv layer
         layer = bm.loops.layers.uv
         uv_layer = layer.verify()
 
         for face in bm.faces:
-            if not face.select and in_edit_mode: continue
+            idx = random.randrange(0, pattern_len)
 
-            if rotate_mode == "1":
+            pattern_rect = items[idx][1]
+            rect = pattern_rect.get_rect(collection)
 
-                # build uv list
-                uv_list = []
-                for vert, loop in zip(face.verts, face.loops):
-                    uv = loop[uv_layer].uv
-                    uv_list.append(mathutils.Vector((uv.x, uv.y)))
+            unwrap_auto(space_mode, in_edit_mode, context, mw, {face}, unwrap_mode, correct_aspect, snap_to_bounds,
+                        rect, uv_layer)
 
-                # shift uvs around
-                vert_len = len(face.verts)
-                idx = 0
 
-                for vert, loop in zip(face.verts, face.loops):
-                    if self.clockwise:
-                        new_idx = idx + 1
-                        if new_idx > vert_len - 1: new_idx = 0
-                    else:
-                        new_idx = idx - 1
-                        if new_idx < 0: new_idx = vert_len - 1
+class UtilOpNeoRotUv(UtilOpMeshOperator):
+    bl_idname = "neo.uv_rot"
+    bl_label = "Rotate UV"
+    bl_description = "Rotates the UV."
 
-                    loop[uv_layer].uv = uv_list[new_idx]
-                    idx += 1
-            else:
+    clockwise: bpy.props.BoolProperty()
 
-                # calculate uv center
-                uv_center = mathutils.Vector((0.0, 0.0))
+    def do_mesh_edit(self, context, event, bm, in_edit_mode):
 
-                vert_len = len(face.verts)
-                if vert_len == 3:
-                    uv_center = nMath.center_for_triangle(face.loops[0][uv_layer].uv, face.loops[1][uv_layer].uv,
-                                                          face.loops[2][uv_layer].uv)
-                else:
-                    itr = 0
-                    for vert, loop in zip(face.verts, face.loops):
-                        uv = loop[uv_layer].uv
-                        uv_center += uv
-                        itr += 1
+        # get active uv layer
+        layer = bm.loops.layers.uv
+        uv_layer = layer.verify()
 
-                    uv_center /= itr
-
-                for vert, loop in zip(face.verts, face.loops):
-                    uv = loop[uv_layer].uv
-
-                    uv = nMath.rotate_vector(uv, uv_center, 90 if self.clockwise else -90)
-                    loop[uv_layer].uv = mathutils.Vector(uv)
+        rotate(in_edit_mode, bm.faces, self.clockwise, uv_layer)
 
 
 class UtilOpNeoFlipUv(UtilOpMeshOperator):
     bl_idname = "neo.uv_flip"
     bl_label = "Flip UV"
-    bl_description = ""
+    bl_description = "Flips the UV."
 
     horizontal: bpy.props.BoolProperty()
 
@@ -440,43 +554,13 @@ class UtilOpNeoFlipUv(UtilOpMeshOperator):
         layer = bm.loops.layers.uv
         uv_layer = layer.verify()
 
-        for face in bm.faces:
-            if not face.select and in_edit_mode: continue
-
-            # calculate uv center
-            uv_center = mathutils.Vector((0.0, 0.0))
-
-            vert_len = len(face.verts)
-            if vert_len == 3:
-                uv_center = nMath.center_for_triangle(face.loops[0][uv_layer].uv, face.loops[1][uv_layer].uv,
-                                                      face.loops[2][uv_layer].uv)
-            else:
-                itr = 0
-                for vert, loop in zip(face.verts, face.loops):
-                    uv = loop[uv_layer].uv
-                    uv_center += uv
-                    itr += 1
-
-                uv_center /= itr
-
-            # perform the flip
-            for vert, loop in zip(face.verts, face.loops):
-                uv = loop[uv_layer].uv
-
-                if self.horizontal:
-                    offset_x = uv.x - uv_center.x
-                    uv.x = uv_center.x + -offset_x
-                else:
-                    offset_y = uv.y - uv_center.y
-                    uv.y = uv_center.y + -offset_y
-
-                loop[uv_layer].uv = mathutils.Vector(uv)
+        flip(in_edit_mode, bm.faces, self.horizontal, uv_layer)
 
 
 class UtilOpNeoNormalizeUv(UtilOpMeshOperator):
     bl_idname = "neo.uv_normalize"
     bl_label = "Normalize UV"
-    bl_description = ""
+    bl_description = "Normalizes the selected UVs so that they stretch to fill the whole 0-1 UV range."
 
     def do_mesh_edit(self, context, event, bm, in_edit_mode):
 
@@ -535,7 +619,7 @@ class UtilOpNeoNormalizeUv(UtilOpMeshOperator):
 class UilOpNeoRepeatSelectUv(bpy.types.Operator):
     bl_idname = "neo.uv_repeatselectuv"
     bl_label = "Repeat Select UV"
-    bl_description = ""
+    bl_description = "Repeats a select and unwrap from the last used collection. Assign this a hotkey!"
 
     def invoke(self, context, event):
         last_set = bpy.context.scene.nuv_settings.last_uv_set
@@ -551,10 +635,29 @@ class UilOpNeoRepeatSelectUv(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class UtilOpNeoRepeatPaintUv(bpy.types.Operator):
+    bl_idname = "neo.uv_repeatpaintuv"
+    bl_label = "Repeat Paint UV"
+    bl_description = "Repeats the paint UV operator using the last used collection. Assign this a hotkey!"
+
+    def invoke(self, context, event):
+        last_set = bpy.context.scene.nuv_settings.last_uv_set
+        if last_set < 0:
+            return {"CANCELLED"}
+
+        collection_list = bpy.context.scene.nuv_uvSets
+        if len(collection_list) < 1:
+            return {"CANCELLED"}
+
+        bpy.ops.view3d.nuv_set_paint_rect_selector('INVOKE_DEFAULT',
+                                                collectionIdx=bpy.context.scene.nuv_settings.last_uv_set)
+        return {"FINISHED"}
+
+
 class UtilOpNeoUvReload(bpy.types.Operator):
     bl_idname = "neo.uv_uireload"
     bl_label = "Reload"
-    bl_description = ""
+    bl_description = "Reloads the tilemap from disk."
 
     collectionIdx: bpy.props.IntProperty()
     def invoke(self, context, event):
@@ -585,7 +688,10 @@ classes = (
     UtilOpNeoRotUv,
     UtilOpNeoFlipUv,
     UtilOpNeoNormalizeUv,
-    UtilOpNeoSetUvRectNormal
+    UtilOpNeoSetUvRectNormal,
+    UtilOpNeoPaintUnwrap,
+    UtilOpNeoPatternUnwrap,
+    UtilOpNeoRepeatPaintUv,
 )
 
 
