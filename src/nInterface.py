@@ -207,7 +207,10 @@ def ui_draw(layout, context):
         nuv_settings_only = False
         return
 
-    in_edit_mode = bpy.context.object.mode == "EDIT"
+    if bpy.context.object is None:
+        in_edit_mode = False
+    else:
+        in_edit_mode = bpy.context.object.mode == "EDIT"
     ui_draw_manip_tools(layout, context, settings, in_edit_mode)
     ui_draw_rects(layout, context, settings, in_edit_mode)
 
