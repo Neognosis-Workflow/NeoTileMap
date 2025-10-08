@@ -59,6 +59,7 @@ class NeoRectSelector(nImageOp.NeoImageOperator):
         try:
             if self.openHighlightIdx > -1:
                 self.snap_mouse_to_open_highlight(context, image, self.openHighlightIdx)
+                self.openHighlightIdx = -1
         except Exception as e:
             print(e)
 

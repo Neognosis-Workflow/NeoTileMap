@@ -54,103 +54,208 @@ def get_best_rect_for_face(face, uv_layer, collection):
 
 def rotate(only_selected, faces, clockwise, uv_layer):
     rotate_mode = bpy.context.scene.nuv_settings.mode_rotate
+    use_bounds = bpy.context.scene.nuv_settings.transform_uses_bounds
+    space_mode = bpy.context.scene.nuv_settings.mode_space
 
-    for face in faces:
-        if not face.select and only_selected: continue
+    if space_mode == "perface":
+        for face in faces:
+            if not face.select and only_selected: continue
 
-        if rotate_mode == "1":
+            if rotate_mode == "shift":
 
-            # build uv list
-            uv_list = []
-            for vert, loop in zip(face.verts, face.loops):
-                uv = loop[uv_layer].uv
-                uv_list.append(mathutils.Vector((uv.x, uv.y)))
+                # build uv list
+                uv_list = []
+                for vert, loop in zip(face.verts, face.loops):
+                    uv = loop[uv_layer].uv
+                    uv_list.append(mathutils.Vector((uv.x, uv.y)))
 
-            # shift uvs around
-            vert_len = len(face.verts)
-            idx = 0
+                # shift uvs around
+                vert_len = len(face.verts)
+                idx = 0
 
-            for vert, loop in zip(face.verts, face.loops):
-                if clockwise:
-                    new_idx = idx + 1
-                    if new_idx > vert_len - 1: new_idx = 0
+                for vert, loop in zip(face.verts, face.loops):
+                    if clockwise:
+                        new_idx = idx + 1
+                        if new_idx > vert_len - 1: new_idx = 0
+                    else:
+                        new_idx = idx - 1
+                        if new_idx < 0: new_idx = vert_len - 1
+
+                    loop[uv_layer].uv = uv_list[new_idx]
+                    idx += 1
+            else:
+                # calculate uv center
+                uv_center = mathutils.Vector((0.0, 0.0))
+
+                if use_bounds:
+                    bounds_init = 1000000000
+                    uv_bounds_min = mathutils.Vector((bounds_init, bounds_init))
+                    uv_bounds_max = mathutils.Vector((-bounds_init, -bounds_init))
+
+                    for loop in face.loops:
+                        uv = loop[uv_layer].uv
+
+                        if uv.x < uv_bounds_min.x: uv_bounds_min.x = uv.x
+                        if uv.y < uv_bounds_min.y: uv_bounds_min.y = uv.y
+
+                        if uv.x > uv_bounds_max.x: uv_bounds_max.x = uv.x
+                        if uv.y > uv_bounds_max.y: uv_bounds_max.y = uv.y
+
+                    uv_center = (uv_bounds_min + uv_bounds_max) / 2.0
                 else:
-                    new_idx = idx - 1
-                    if new_idx < 0: new_idx = vert_len - 1
+                    vert_len = len(face.verts)
+                    if vert_len == 3:
+                        uv_center = nMath.center_for_triangle(face.loops[0][uv_layer].uv, face.loops[1][uv_layer].uv,
+                                                              face.loops[2][uv_layer].uv)
+                    else:
+                        itr = 0
+                        for loop in face.loops:
+                            uv = loop[uv_layer].uv
+                            uv_center += uv
+                            itr += 1
 
-                loop[uv_layer].uv = uv_list[new_idx]
-                idx += 1
-        else:
+                        uv_center /= itr
+
+                for loop in face.loops:
+                    uv = loop[uv_layer].uv
+
+                    uv = nMath.rotate_vector(uv, uv_center, 90 if clockwise else -90)
+    else:
+        bounds_init = 1000000000
+        uv_bounds_min = mathutils.Vector((bounds_init, bounds_init))
+        uv_bounds_max = mathutils.Vector((-bounds_init, -bounds_init))
+
+        # calculate bounds for all uvs
+        selected_faces = []
+        for face in faces:
+            if not face.select and only_selected: continue
+
+            selected_faces.append(face)
+
+            for loop in face.loops:
+                uv = loop[uv_layer].uv
+
+                if uv.x < uv_bounds_min.x: uv_bounds_min.x = uv.x
+                if uv.y < uv_bounds_min.y: uv_bounds_min.y = uv.y
+
+                if uv.x > uv_bounds_max.x: uv_bounds_max.x = uv.x
+                if uv.y > uv_bounds_max.y: uv_bounds_max.y = uv.y
+
+        uv_center = (uv_bounds_min + uv_bounds_max) / 2.0
+
+        for face in selected_faces:
+            for loop in face.loops:
+                uv = loop[uv_layer].uv
+
+                uv = nMath.rotate_vector(uv, uv_center, 90 if clockwise else -90)
+
+
+def flip(only_selected, faces, horizontal, uv_layer):
+    use_bounds = bpy.context.scene.nuv_settings.transform_uses_bounds
+    space_mode = bpy.context.scene.nuv_settings.mode_space
+
+    if space_mode == "perface":
+        for face in faces:
+            if not face.select and only_selected: continue
 
             # calculate uv center
             uv_center = mathutils.Vector((0.0, 0.0))
 
-            vert_len = len(face.verts)
-            if vert_len == 3:
-                uv_center = nMath.center_for_triangle(face.loops[0][uv_layer].uv, face.loops[1][uv_layer].uv,
-                                                      face.loops[2][uv_layer].uv)
-            else:
-                itr = 0
-                for vert, loop in zip(face.verts, face.loops):
+            if use_bounds:
+                bounds_init = 1000000000
+                uv_bounds_min = mathutils.Vector((bounds_init, bounds_init))
+                uv_bounds_max = mathutils.Vector((-bounds_init, -bounds_init))
+
+                for loop in face.loops:
                     uv = loop[uv_layer].uv
-                    uv_center += uv
-                    itr += 1
 
-                uv_center /= itr
+                    if uv.x < uv_bounds_min.x: uv_bounds_min.x = uv.x
+                    if uv.y < uv_bounds_min.y: uv_bounds_min.y = uv.y
 
-            for vert, loop in zip(face.verts, face.loops):
-                uv = loop[uv_layer].uv
+                    if uv.x > uv_bounds_max.x: uv_bounds_max.x = uv.x
+                    if uv.y > uv_bounds_max.y: uv_bounds_max.y = uv.y
 
-                uv = nMath.rotate_vector(uv, uv_center, 90 if clockwise else -90)
-                loop[uv_layer].uv = mathutils.Vector(uv)
-
-def flip(only_selected, faces, horizontal, uv_layer):
-    for face in faces:
-        if not face.select and only_selected: continue
-
-        # calculate uv center
-        uv_center = mathutils.Vector((0.0, 0.0))
-
-        vert_len = len(face.verts)
-        if vert_len == 3:
-            uv_center = nMath.center_for_triangle(face.loops[0][uv_layer].uv, face.loops[1][uv_layer].uv,
-                                                  face.loops[2][uv_layer].uv)
-        else:
-            itr = 0
-            for vert, loop in zip(face.verts, face.loops):
-                uv = loop[uv_layer].uv
-                uv_center += uv
-                itr += 1
-
-            uv_center /= itr
-
-        # perform the flip
-        for vert, loop in zip(face.verts, face.loops):
-            uv = loop[uv_layer].uv
-
-            if horizontal:
-                offset_x = uv.x - uv_center.x
-                uv.x = uv_center.x + -offset_x
+                uv_center = (uv_bounds_min + uv_bounds_max) / 2.0
             else:
-                offset_y = uv.y - uv_center.y
-                uv.y = uv_center.y + -offset_y
+                vert_len = len(face.verts)
+                if vert_len == 3:
+                    uv_center = nMath.center_for_triangle(face.loops[0][uv_layer].uv, face.loops[1][uv_layer].uv,
+                                                          face.loops[2][uv_layer].uv)
+                else:
+                    itr = 0
+                    for loop in face.loops:
+                        uv = loop[uv_layer].uv
+                        uv_center += uv
+                        itr += 1
 
-            loop[uv_layer].uv = mathutils.Vector(uv)
+                    uv_center /= itr
+
+            # perform the flip
+            for loop in face.loops:
+                uv = loop[uv_layer].uv
+
+                if horizontal:
+                    offset_x = uv.x - uv_center.x
+                    uv.x = uv_center.x + -offset_x
+                else:
+                    offset_y = uv.y - uv_center.y
+                    uv.y = uv_center.y + -offset_y
+    else:
+        bounds_init = 1000000000
+        uv_bounds_min = mathutils.Vector((bounds_init, bounds_init))
+        uv_bounds_max = mathutils.Vector((-bounds_init, -bounds_init))
+
+        # calculate bounds for all uvs
+        selected_faces = []
+        for face in faces:
+            if not face.select and only_selected: continue
+
+            selected_faces.append(face)
+
+            for loop in face.loops:
+                uv = loop[uv_layer].uv
+
+                if uv.x < uv_bounds_min.x: uv_bounds_min.x = uv.x
+                if uv.y < uv_bounds_min.y: uv_bounds_min.y = uv.y
+
+                if uv.x > uv_bounds_max.x: uv_bounds_max.x = uv.x
+                if uv.y > uv_bounds_max.y: uv_bounds_max.y = uv.y
+
+        uv_center = (uv_bounds_min + uv_bounds_max) / 2.0
+
+        for face in selected_faces:
+            # perform the flip
+            for loop in face.loops:
+                uv = loop[uv_layer].uv
+
+                if horizontal:
+                    offset_x = uv.x - uv_center.x
+                    uv.x = uv_center.x + -offset_x
+                else:
+                    offset_y = uv.y - uv_center.y
+                    uv.y = uv_center.y + -offset_y
 
 
-def unwrap_auto(space_mode, only_selected, context, mw, faces, unwrap_mode, correct_aspect, snap_to_bounds, rect,
+def unwrap_auto(space_mode, only_selected, context, mw, faces, unwrap_mode, correct_aspect, snap_mode, rect,
                 uv_layer):
     """Unwraps selected faces, automatically choosen between local of world unwrap based on the value of space_mode"""
-    if space_mode == "1":
-        unwrap_local(only_selected, context, mw, faces, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer)
+    if space_mode == "perface":
+        unwrap_local(only_selected, context, mw, faces, unwrap_mode, correct_aspect, snap_mode, rect, uv_layer)
     else:
-        unwrap_global(only_selected, context, mw, faces, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer)
+        unwrap_global(only_selected, context, mw, faces, unwrap_mode, correct_aspect, snap_mode, rect, uv_layer)
 
 
-def unwrap_local(only_selected, context, mw, faces, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer):
+def unwrap_local(only_selected, context, mw, faces, unwrap_mode, correct_aspect, snap_mode, rect, uv_layer):
     """
     Unwraps selected faces local to themselves.
     """
+
+    normalize_to_bounds = snap_mode == "to_bounds"
+
+    if normalize_to_bounds:
+        bounds_init = 1000000000
+        uv_bounds_min = mathutils.Vector((bounds_init, bounds_init))
+        uv_bounds_max = mathutils.Vector((-bounds_init, -bounds_init))
 
     # enumerate selected faces
     for face in faces:
@@ -163,13 +268,13 @@ def unwrap_local(only_selected, context, mw, faces, unwrap_mode, correct_aspect,
 
         # calculate face rotation
         unwrap_axis = bpy.context.scene.nuv_settings.unwrap_axis
-        if unwrap_mode == "1": # face up
+        if unwrap_mode == "face":
             unwrap_up = tangent
-        elif unwrap_mode == "2": # world up
+        elif unwrap_mode == "world":
             unwrap_up = mathutils.Vector(unwrap_axis)
-        elif unwrap_mode == "3": # object up
+        elif unwrap_mode == "object":
             unwrap_up = mw.to_quaternion() @ mathutils.Vector(unwrap_axis)
-        elif unwrap_mode == "4": # camera up
+        elif unwrap_mode == "camera":
             unwrap_up = context.space_data.region_3d.view_rotation @ mathutils.Vector(unwrap_axis)
         else:
             unwrap_up = tangent
@@ -210,8 +315,8 @@ def unwrap_local(only_selected, context, mw, faces, unwrap_mode, correct_aspect,
 
         # unwrap
         itr = 0
-        for vert, loop in zip(face.verts, face.loops):
-            if unwrap_mode == "5" and vert_len <= 4:
+        for loop in face.loops:
+            if unwrap_mode == "none" and vert_len <= 4:
                 if itr == 0:
                     x = (rect.topLeftX + 1.0) / 2.0
                     y = (rect.topLeftY + 1.0) / 2.0
@@ -246,19 +351,55 @@ def unwrap_local(only_selected, context, mw, faces, unwrap_mode, correct_aspect,
 
                 uv = mathutils.Vector((x, y))
 
-                if snap_to_bounds:
+                if snap_mode == "to_corners":
                     uv = nUtil.find_closest_bound_vert(uv, mathutils.Vector(nUtil.abs_uv(top_left)), mathutils.Vector(nUtil.abs_uv(top_right)),
                                                        mathutils.Vector(nUtil.abs_uv(bottom_right)), nUtil.abs_uv(mathutils.Vector(bottom_left)))
 
                 loop[uv_layer].uv = uv
 
+            if normalize_to_bounds:
+                if uv.x < uv_bounds_min.x: uv_bounds_min.x = uv.x
+                if uv.y < uv_bounds_min.y: uv_bounds_min.y = uv.y
+
+                if uv.x > uv_bounds_max.x: uv_bounds_max.x = uv.x
+                if uv.y > uv_bounds_max.y: uv_bounds_max.y = uv.y
+
             itr += 1
 
+        if normalize_to_bounds:
+            # bounds aspect ratio
+            uv_width = abs(uv_bounds_max.x - uv_bounds_min.x)
+            uv_height = abs(uv_bounds_max.y - uv_bounds_min.y)
+            aspect = uv_height / uv_width
 
-def unwrap_global(only_selected, context, mw, faces, unwrap_mode, correct_aspect, snap_to_bounds, rect, uv_layer):
+            # normalize
+            for loop in face.loops:
+                uv = loop[uv_layer].uv
+
+                factor_x = nMath.inverse_lerp(uv_bounds_min.x, uv_bounds_max.x, uv.x, True)
+                factor_y = nMath.inverse_lerp(uv_bounds_min.y, uv_bounds_max.y, uv.y, True)
+
+                if correct_aspect:
+                    if aspect >= 1.0:
+                        factor_x /= aspect
+                    else:
+                        factor_y *= aspect
+
+                uv.x = nMath.lerp((rect.topLeftX + 1.0) / 2.0, (rect.topRightX + 1.0) / 2.0, factor_x, True)
+                uv.y = nMath.lerp((rect.bottomLeftY + 1.0) / 2.0, (rect.topLeftY + 1.0) / 2.0, factor_y, True)
+
+
+def unwrap_global(only_selected, context, mw, faces, unwrap_mode, correct_aspect, snap_mode, rect, uv_layer):
     """
     Unwraps the selected faces global to the sum of all faces
     """
+
+    normalize_to_bounds = snap_mode != "off"
+
+    if normalize_to_bounds:
+        bounds_init = 1000000000
+        uv_bounds_min = mathutils.Vector((bounds_init, bounds_init))
+        uv_bounds_max = mathutils.Vector((-bounds_init, -bounds_init))
 
     ###############################################################
     # PASS 1 | Calculate global face transform
@@ -294,13 +435,13 @@ def unwrap_global(only_selected, context, mw, faces, unwrap_mode, correct_aspect
 
     # calculate global rotation
     unwrap_axis = bpy.context.scene.nuv_settings.unwrap_axis
-    if unwrap_mode == "1":  # face up
+    if unwrap_mode == "face":
         unwrap_up = global_tangent
-    elif unwrap_mode == "2":  # world up
+    elif unwrap_mode == "world":
         unwrap_up = mathutils.Vector(unwrap_axis)
-    elif unwrap_mode == "3":  # object up
+    elif unwrap_mode == "object":
         unwrap_up = mw.to_quaternion() @ mathutils.Vector(unwrap_axis)
-    elif unwrap_mode == "4": # camera up
+    elif unwrap_mode == "camera":
         unwrap_up = context.space_data.region_3d.view_rotation @ mathutils.Vector(unwrap_axis)
     else:
         unwrap_up = global_tangent
@@ -351,13 +492,12 @@ def unwrap_global(only_selected, context, mw, faces, unwrap_mode, correct_aspect
     ###############################################################
     # PASS 3 | Unwrap Uvs
     ###############################################################
-
     face_itr = 0
     for face in selected_faces:
         verts_local_face = linked_vert_data[face_itr]
 
         itr = 0
-        for vert, loop in zip(face.verts, face.loops):
+        for loop in face.loops:
 
             # normalized to total uv space
             x = ((verts_local_face[itr].x / max_dim_x) + 1.0) / 2.0
@@ -367,7 +507,6 @@ def unwrap_global(only_selected, context, mw, faces, unwrap_mode, correct_aspect
             top_left = nData.rect_top_left(rect)
             top_right = nData.rect_top_right(rect)
             bottom_left = nData.rect_bottom_left(rect)
-            bottom_right = nData.rect_bottom_right(rect)
 
             x = nMath.lerp((top_left[0] + 1.0) / 2.0, (top_right[0] + 1.0) / 2.0, x, True)
             y = nMath.lerp((bottom_left[1] + 1.0) / 2.0, (top_left[1] + 1.0) / 2.0, y, True)
@@ -376,9 +515,42 @@ def unwrap_global(only_selected, context, mw, faces, unwrap_mode, correct_aspect
 
             loop[uv_layer].uv = uv
 
+            if normalize_to_bounds:
+                if uv.x < uv_bounds_min.x: uv_bounds_min.x = uv.x
+                if uv.y < uv_bounds_min.y: uv_bounds_min.y = uv.y
+
+                if uv.x > uv_bounds_max.x: uv_bounds_max.x = uv.x
+                if uv.y > uv_bounds_max.y: uv_bounds_max.y = uv.y
+
             itr += 1
 
         face_itr += 1
+
+    ###############################################################
+    # PASS 4 | Normalize
+    ###############################################################
+    if normalize_to_bounds:
+        for face in selected_faces:
+            # bounds aspect ratio
+            uv_width = abs(uv_bounds_max.x - uv_bounds_min.x)
+            uv_height = abs(uv_bounds_max.y - uv_bounds_min.y)
+            aspect = uv_height / uv_width
+
+            # normalize
+            for loop in face.loops:
+                uv = loop[uv_layer].uv
+
+                factor_x = nMath.inverse_lerp(uv_bounds_min.x, uv_bounds_max.x, uv.x, True)
+                factor_y = nMath.inverse_lerp(uv_bounds_min.y, uv_bounds_max.y, uv.y, True)
+
+                if correct_aspect:
+                    if aspect >= 1.0:
+                        factor_x /= aspect
+                    else:
+                        factor_y *= aspect
+
+                uv.x = nMath.lerp((rect.topLeftX + 1.0) / 2.0, (rect.topRightX + 1.0) / 2.0, factor_x, True)
+                uv.y = nMath.lerp((rect.bottomLeftY + 1.0) / 2.0, (rect.topLeftY + 1.0) / 2.0, factor_y, True)
 
 # endregion
 
@@ -446,7 +618,7 @@ class UtilOpNeoSetUvRect(UtilOpMeshOperator):
         space_mode = bpy.context.scene.nuv_settings.mode_space
         unwrap_mode = bpy.context.scene.nuv_settings.mode_unwrap
         correct_aspect = bpy.context.scene.nuv_settings.correct_aspect_ratio
-        snap_to_bounds = bpy.context.scene.nuv_settings.snap_to_bounds
+        snap_mode = bpy.context.scene.nuv_settings.snap_mode
         collection = bpy.context.scene.nuv_uvSets[self.collectionIdx]
         rect = collection.items[self.rectIdx]
 
@@ -458,7 +630,7 @@ class UtilOpNeoSetUvRect(UtilOpMeshOperator):
         layer = bm.loops.layers.uv
         uv_layer = layer.verify()
 
-        unwrap_auto(space_mode, in_edit_mode, context, mw, bm.faces, unwrap_mode, correct_aspect, snap_to_bounds, rect,
+        unwrap_auto(space_mode, in_edit_mode, context, mw, bm.faces, unwrap_mode, correct_aspect, snap_mode, rect,
                     uv_layer)
 
 
@@ -474,7 +646,7 @@ class UtilOpNeoSetUvRectNormal(UtilOpMeshOperator):
         space_mode = bpy.context.scene.nuv_settings.mode_space
         unwrap_mode = bpy.context.scene.nuv_settings.mode_unwrap
         correct_aspect = bpy.context.scene.nuv_settings.correct_aspect_ratio
-        snap_to_bounds = bpy.context.scene.nuv_settings.snap_to_bounds
+        snap_mode = bpy.context.scene.nuv_settings.snap_mode
 
         # create dummy rect
         rect = nData.NeoRect((-1, 1), (1, 1), (-1, -1), (1, -1))
@@ -487,7 +659,7 @@ class UtilOpNeoSetUvRectNormal(UtilOpMeshOperator):
         layer = bm.loops.layers.uv
         uv_layer = layer.verify()
 
-        unwrap_auto(space_mode, in_edit_mode, context, mw, bm.faces, unwrap_mode, correct_aspect, snap_to_bounds, rect,
+        unwrap_auto(space_mode, in_edit_mode, context, mw, bm.faces, unwrap_mode, correct_aspect, snap_mode, rect,
                     uv_layer)
 
 
@@ -516,7 +688,7 @@ class UtilOpNeoPatternUnwrap(UtilOpMeshOperator):
         space_mode = bpy.context.scene.nuv_settings.mode_space
         unwrap_mode = bpy.context.scene.nuv_settings.mode_unwrap
         correct_aspect = bpy.context.scene.nuv_settings.correct_aspect_ratio
-        snap_to_bounds = bpy.context.scene.nuv_settings.snap_to_bounds
+        snap_mode = bpy.context.scene.nuv_settings.snap_mode
         collection = bpy.context.scene.nuv_uvSets[self.collectionIdx]
         pattern = collection.get_active_pattern()
 
@@ -541,7 +713,7 @@ class UtilOpNeoPatternUnwrap(UtilOpMeshOperator):
 
             rect = pattern_rect.get_rect(collection)
 
-            unwrap_auto(space_mode, in_edit_mode, context, mw, {face}, unwrap_mode, correct_aspect, snap_to_bounds,
+            unwrap_local(in_edit_mode, context, mw, {face}, unwrap_mode, correct_aspect, snap_mode,
                         rect, uv_layer)
 
 

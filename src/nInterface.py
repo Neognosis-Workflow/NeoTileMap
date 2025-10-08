@@ -55,7 +55,16 @@ class NeoUvUiSettings(bpy.types.PropertyGroup):
     rects_expanded: bpy.props.BoolProperty()
 
     correct_aspect_ratio: bpy.props.BoolProperty(default=True)
-    snap_to_bounds: bpy.props.BoolProperty(default=False)
+    transform_uses_bounds: bpy.props.BoolProperty(default=True)
+    snap_mode: bpy.props.EnumProperty(
+        name="Bounds Snap",
+        default="to_bounds",
+        items=(
+            ("off", "Off", "UVs will not be snapped at be left as is."),
+            ("to_corners", "Corners", "UVs will be forced to the corners of the UV rect.\nThis is recommended if you use the camera unwrap mode."),
+            ("to_bounds", "Bounds", "UVs will be remaped to fully cover the bounds of the UV rect.")
+        ),
+    )
 
     unwrap_axis: bpy.props.IntVectorProperty(
         name="Unwrap Axis",
@@ -66,28 +75,28 @@ class NeoUvUiSettings(bpy.types.PropertyGroup):
 
     mode_space: bpy.props.EnumProperty(
         name="Unwrap Origins",
-        items = (
-            ("1", "Individual Face", "Individual Face"),
-            ("2", "Center Of Selected", "Center Of Selected")
+        items=(
+            ("perface", "Per Face", "Each face will be individually unwrapped to the selected UV rect."),
+            ("allfaces", "All Faces", "Every selected face will be unwrapped into the selected UV rect.")
         ),
     )
 
     mode_unwrap: bpy.props.EnumProperty(
         name="Unwrap Mode",
         items=(
-            ("1", "Face Is Up", "Face Is Up"),
-            ("2", "World Is Up", "World Is Up"),
-            ("3", "Object Is Up", "Object Is Up"),
-            ("4", "Camera Is Up", "Camera Is Up"),
-            ("5", "No Projection", "No Projection")
+            ("face", "Face", "UVs will be unwrapped using the face as an up vector reference."),
+            ("world", "World", "Uvs will be unwrapped using the world as an up vector reference."),
+            ("object", "Object", "UVs will be unwrapped using the selected objects rotation as an up vector reference."),
+            ("camera", "Camera", "UVs will be unwrapped using the cameras rotation as an up vector reference."),
+            ("none", "None", "UVs will have no reference when being unwrapped.\nThe snapping options won't do anything in this mode.")
         ),
     )
 
     mode_rotate: bpy.props.EnumProperty(
-        name= "Rotate Mode",
-        items = (
-            ("1", "Shift Array", "Shift Array"),
-            ("2", "Orbit Verts", "Orbit Verts")
+        name="Rotate Mode",
+        items=(
+            ("shift", "Shift", "The UVs will be shifted across the face edge."),
+            ("orbit", "Orbit", "The UVs will orbit around the faces center.")
         ),
     )
 
@@ -233,42 +242,50 @@ def ui_draw_settings(layout, context, settings):
     c_row = container.row()
     c_row.split(factor=0.3)
 
-    c_row.label(text="Unwrap Settings")
+    c_row.label(text="General")
 
     c_col = c_row.column()
     c_col.prop(settings, "correct_aspect_ratio", expand=True, text="Correct Aspect Ratio")
-    c_col.prop(settings, "snap_to_bounds", expand=True, text="Snap To Bounds")
+    c_col.prop(settings, "transform_uses_bounds", expand=True, text="Transform Uses Bounds")
 
     c_col.label(text="Unwrap Axis")
     c_row_inner = c_col.row()
     c_row_inner.prop(settings, "unwrap_axis", expand=True, text="")
 
+    # snap mode
+    c_row = container.row()
+    c_row.split(factor=0.3)
+
+    c_row.label(text="Snap")
+    c_col = c_row.row()
+    c_col.prop(settings, "snap_mode", expand=True)
+
     # space mode
     c_row = container.row()
     c_row.split(factor=0.3)
 
-    c_row.label(text="Origins Mode")
+    c_row.label(text="Origins")
 
-    c_col = c_row.column()
+    c_col = c_row.row()
     c_col.prop(settings, "mode_space", expand=True)
-
-    # unwrap mode
-    c_row = container.row()
-    c_row.split(factor=0.3)
-
-    c_row.label(text="Unwrap Mode")
-
-    c_col = c_row.column()
-    c_col.prop(settings, "mode_unwrap", expand=True)
 
     # rotate mode
     c_row = container.row()
     c_row.split(factor=0.3)
 
-    c_row.label(text="Rotate Mode")
+    c_row.label(text="Rotate")
+
+    c_col = c_row.row()
+    c_col.prop(settings, "mode_rotate", expand=True)
+
+    # unwrap mode
+    c_row = container.row()
+    c_row.split(factor=0.3)
+
+    c_row.label(text="Unwrap")
 
     c_col = c_row.column()
-    c_col.prop(settings, "mode_rotate", expand=True)
+    c_col.prop(settings, "mode_unwrap", expand=True)
 
 
 def ui_draw_manip_tools(layout, context, settings, in_edit_mode):

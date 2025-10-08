@@ -125,7 +125,7 @@ class NeoPaint(bpy.types.Operator):
         space_mode = bpy.context.scene.nuv_settings.mode_space
         unwrap_mode = bpy.context.scene.nuv_settings.mode_unwrap
         correct_aspect = bpy.context.scene.nuv_settings.correct_aspect_ratio
-        snap_to_bounds = bpy.context.scene.nuv_settings.snap_to_bounds
+        snap_mode = bpy.context.scene.nuv_settings.snap_mode
 
         # get active uv layer
         layer = self.edit_mesh.loops.layers.uv
@@ -134,7 +134,7 @@ class NeoPaint(bpy.types.Operator):
         # update uv
         face = {face}
         nUv.unwrap_auto(space_mode, False, context, self.obj.matrix_world, face,
-                        unwrap_mode, correct_aspect, snap_to_bounds, self.rect, uv_layer)
+                        unwrap_mode, correct_aspect, snap_mode, self.rect, uv_layer)
 
         nUv.paint_post_unwrap(event, face, uv_layer)
 
