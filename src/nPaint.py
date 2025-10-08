@@ -147,7 +147,14 @@ class NeoPaint(bpy.types.Operator):
 
         nUv.rotate(False, {face}, clockwise, uv_layer)
 
-        # increment and update
+        bmesh.update_edit_mesh(self.mesh, loop_triangles=False, destructive=False)
+
+    def flip(self, context, face, horizontal):
+        layer = self.edit_mesh.loops.layers.uv
+        uv_layer = layer.verify()
+
+        nUv.flip(False, {face}, horizontal, uv_layer)
+
         bmesh.update_edit_mesh(self.mesh, loop_triangles=False, destructive=False)
 
     def try_set_rect_from_face(self, context, face):
@@ -211,6 +218,14 @@ class NeoPaint(bpy.types.Operator):
                 return {"RUNNING_MODAL"}
             if event.type == "WHEELDOWNMOUSE":
                 self.rotate(context, self.hit_face, False)
+                return {"RUNNING_MODAL"}
+
+        if event.ctrl and self.hit_face:
+            if event.type == "WHEELUPMOUSE":
+                self.flip(context, self.hit_face, False)
+                return {"RUNNING_MODAL"}
+            if event.type == "WHEELDOWNMOUSE":
+                self.flip(context, self.hit_face, True)
                 return {"RUNNING_MODAL"}
 
         if self.hit_face is not self.last_hit_face:

@@ -236,7 +236,7 @@ class NeoSetUvRectSelector(NeoRectSelector):
 class NeoSetPaintRectSelector(NeoRectSelector):
     bl_idname = "view3d.nuv_set_paint_rect_selector"
     bl_label = "Paint Rect Selector."
-    bl_description = "Paint UVs. Right click to select a different rect.\nHold CTRL while painting to flip horizontally and CTRL + Shift to flip vertically.\nHold ALT and use the scrollwheel to rotate UVs.\nHold ALt with and without other combinations of modifier keys to paint rotated UVs.\nHold ALT and right click a face to pick its rect and make it the active one.\nHold ALT, Shift and CTRL to access the properties panel settings."
+    bl_description = "Paint UVs. Right click to select a different rect.\nHold CTRL while painting to flip horizontally and CTRL + Shift to flip vertically.\nHold CTRL and use the scrollwheel to flip UVs.\nHold ALT and use the scrollwheel to rotate UVs.\nHold ALt with and without other combinations of modifier keys to paint rotated UVs.\nHold ALT and right click a face to pick its rect and make it the active one.\nHold ALT, Shift and CTRL to access the properties panel settings."
 
     def on_rect_selected(self, collection_idx, rect_idx):
         bpy.ops.neo.uv_paintunwrap(
