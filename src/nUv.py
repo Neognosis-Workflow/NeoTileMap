@@ -252,11 +252,6 @@ def unwrap_local(only_selected, context, mw, faces, unwrap_mode, correct_aspect,
 
     normalize_to_bounds = snap_mode == "to_bounds"
 
-    if normalize_to_bounds:
-        bounds_init = 1000000000
-        uv_bounds_min = mathutils.Vector((bounds_init, bounds_init))
-        uv_bounds_max = mathutils.Vector((-bounds_init, -bounds_init))
-
     # enumerate selected faces
     for face in faces:
         if not face.select and only_selected: continue
@@ -314,6 +309,11 @@ def unwrap_local(only_selected, context, mw, faces, unwrap_mode, correct_aspect,
             else: max_dim_x = max_dim_y
 
         # unwrap
+        if normalize_to_bounds:
+            bounds_init = 1000000000
+            uv_bounds_min = mathutils.Vector((bounds_init, bounds_init))
+            uv_bounds_max = mathutils.Vector((-bounds_init, -bounds_init))
+
         itr = 0
         for loop in face.loops:
             if unwrap_mode == "none" and vert_len <= 4:
