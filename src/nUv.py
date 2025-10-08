@@ -43,9 +43,11 @@ def get_best_rect_for_face(face, uv_layer, collection):
     uv_center /= itr
 
     # check rect bounds
+    idx = -1
     for rect in collection.items:
+        idx += 1
         if nData.rect_contains(rect, uv_center.x, uv_center.y):
-            return rect
+            return rect, idx
 
     return None
 

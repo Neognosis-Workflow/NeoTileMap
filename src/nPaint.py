@@ -161,10 +161,11 @@ class NeoPaint(bpy.types.Operator):
         layer = self.edit_mesh.loops.layers.uv
         uv_layer = layer.verify()
 
-        new_rect = nUv.get_best_rect_for_face(face, uv_layer, self.collection)
+        new_rect, new_rect_idx = nUv.get_best_rect_for_face(face, uv_layer, self.collection)
         if new_rect is not None:
             self.report({"INFO"}, "Picked rect from face.")
             self.rect = new_rect
+            self.rectIdx = new_rect_idx
         else:
             self.report({"ERROR"}, "Couldn't find a relevant rect to pick from the face.")
 

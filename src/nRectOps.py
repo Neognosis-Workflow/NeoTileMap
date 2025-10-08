@@ -57,7 +57,7 @@ class NeoRectSelector(nImageOp.NeoImageOperator):
         bpy.context.scene.nuv_settings.last_uv_set = self.collectionIdx
 
         try:
-            if self.openHighlightIdx > 0:
+            if self.openHighlightIdx > -1:
                 self.snap_mouse_to_open_highlight(context, image, self.openHighlightIdx)
         except Exception as e:
             print(e)
