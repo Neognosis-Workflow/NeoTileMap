@@ -23,9 +23,10 @@ from gpu_extras.presets import draw_circle_2d
 from gpu_extras.batch import batch_for_shader
 
 is_blender_4_or_greater = bpy.app.version[0] > 3
+is_blender_5_or_greater = bpy.app.version[0] > 4
 
 # blender 4.4 must have additional params for __init__
-is_blender_44_or_greater = is_blender_4_or_greater and bpy.app.version[1] > 3
+is_blender_44_or_greater = (is_blender_4_or_greater and bpy.app.version[1] > 3) or is_blender_5_or_greater
 
 # endregion
 

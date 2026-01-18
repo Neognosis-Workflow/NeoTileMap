@@ -1,8 +1,13 @@
 # region Imports
 
-import sys
-import bgl
 import bpy
+is_blender_4_or_greater = bpy.app.version[0] > 3
+is_blender_5_or_greater = bpy.app.version[0] > 4
+has_bgl = bpy.app.version[0] < 5
+
+import sys
+if has_bgl:
+    import bgl
 
 import gpu
 import gpu_extras.presets
@@ -12,10 +17,11 @@ from gpu_extras.batch import batch_for_shader
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
-is_blender_4_or_greater = bpy.app.version[0] > 3
-
 if is_blender_4_or_greater:
-    shader_img = gpu.shader.from_builtin('IMAGE')
+    if is_blender_5_or_greater:
+        shader_img = gpu.shader.from_builtin('IMAGE_SCENE_LINEAR_TO_REC709_SRGB')
+    else:
+        shader_img = gpu.shader.from_builtin('IMAGE')
     shader_color = gpu.shader.from_builtin('UNIFORM_COLOR')
 else:
     shader_img = gpu.shader.from_builtin('2D_IMAGE')
